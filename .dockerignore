@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+**/node_modules
+**/dist
+**/dist-electron
+**/.turbo
+**/.expo
+**/qa
+**/*.db
+**/*.log
+task.md
+Attachments
