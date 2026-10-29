@@ -117,7 +117,7 @@ export default function Home() {
       </section>
       <section className="container artist-section section">
         <div className="artist-image">
-          <img src="/images/artchive-cta.jpg" alt="Алексей Русин (Alain Rusin)" loading="lazy" />
+          <img src="/images/artist-portrait.jpg" alt="Алексей Русин (Alain Rusin)" loading="lazy" />
         </div>
         <div className="artist-copy">
           <span className="eyebrow">О художнике / 03</span>

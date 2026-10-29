@@ -213,7 +213,7 @@ export function About() {
       </section>
       <section className="container about-grid">
         <div className="about-photo">
-          <img src="/images/artchive-cta.jpg" alt="Алексей Русин" />
+          <img src="/images/artist-portrait.jpg" alt="Алексей Русин" />
         </div>
         <div className="prose">
           {aboutText.split(/(?<=\.) /).map((p, i) => (
