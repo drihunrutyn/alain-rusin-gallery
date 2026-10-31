@@ -35,7 +35,23 @@ except urllib.error.HTTPError as error:
     print("Deno Deploy rejected the request with HTTP", error.code)
     raise SystemExit(1)
 print("Deno revision submitted:", revision["id"], "status:", revision["status"])
-print("Check Deno build logs before treating this as a successful deployment.")
 if os.environ.get("GITHUB_OUTPUT"):
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         output.write("revision=" + revision["id"] + "\n")
+progress = urllib.request.Request(f"https://api.deno.com/v2/revisions/{revision['id']}/progress", headers={"Authorization": "Bearer " + token, "Accept": "application/x-ndjson"})
+# Read the server's progress stream; no periodic polling or keep-alive loop.
+with urllib.request.urlopen(progress, timeout=480) as response:
+    for line in response:
+        if line.strip():
+            stages = json.loads(line)
+            print("Build:", {name: value.get("status") for name, value in stages.items() if isinstance(value, dict)})
+status = urllib.request.Request(f"https://api.deno.com/v2/revisions/{revision['id']}", headers={"Authorization": "Bearer " + token})
+with urllib.request.urlopen(status, timeout=60) as response:
+    final = json.load(response)
+print("Final Deno status:", final["status"])
+if final["status"] != "succeeded":
+    print("Inspect Deno build logs for the failure; the previous successful revision stays live.")
+    raise SystemExit(1)
+for timeline in final.get("timelines", []):
+    if timeline.get("context") == "Production":
+        print("Live URLs:", ["https://" + host for host in timeline.get("hostnames", [])])

@@ -1,5 +1,5 @@
 import { createClient } from "@libsql/client/http";
-import { drizzle } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/libsql/http";
 import * as schema from "./schema";
 
 const url = (process.env.DATABASE_URL ?? "").replace(/^libsql:/, "https:");

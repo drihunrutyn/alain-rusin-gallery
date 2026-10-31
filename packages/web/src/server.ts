@@ -116,7 +116,8 @@ export default {
           "Referrer-Policy": "strict-origin-when-cross-origin",
         },
       });
-    } catch {
+    } catch (error) {
+      console.error("Request handler failed:", error instanceof Error ? error.name : "UnknownError");
       return new Response("Service temporarily unavailable", { status: 503 });
     }
   },
