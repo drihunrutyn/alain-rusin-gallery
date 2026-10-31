@@ -13,6 +13,7 @@ import {
 } from "../components/gallery-ui";
 import { RoomSimulator } from "../components/room-simulator";
 import { PdfButton } from "../components/pdf-catalog";
+import { imageUrl } from "../lib/images";
 
 export function Gallery() {
   const works = useArtworks();
@@ -159,7 +160,7 @@ export function ArtworkPage() {
         </Link>
         <div className="detail-grid">
           <div className="detail-image">
-            <img src={a.imageUrl} alt={a.title} />
+            <img src={imageUrl(a.imageUrl)} alt={a.title} />
           </div>
           <div className="detail-copy">
             <span className="eyebrow">
@@ -213,7 +214,7 @@ export function About() {
       </section>
       <section className="container about-grid">
         <div className="about-photo">
-          <img src="/images/artist-portrait.jpg" alt="Алексей Русин" />
+          <img src={imageUrl("/images/artist-portrait.jpg")} alt="Алексей Русин" />
         </div>
         <div className="prose">
           {aboutText.split(/(?<=\.) /).map((p, i) => (
@@ -272,7 +273,7 @@ export function Media() {
               ?.filter((c) => c.type === tab)
               .map((c) => (
                 <article key={c.id} className="media-card">
-                  {c.imageUrl && <img src={c.imageUrl} alt={c.title} loading="lazy" />}
+                  {c.imageUrl && <img src={imageUrl(c.imageUrl)} alt={c.title} loading="lazy" />}
                   {c.embedUrl && (
                     <iframe
                       src={c.embedUrl}
@@ -362,7 +363,7 @@ export function B2B() {
           <h2>
             Каталог <em>работ</em>
           </h2>
-          <img src="/images/seeds/aquatika.jpg" alt="Акватика" loading="lazy" />
+          <img src={imageUrl("/images/seeds/aquatika.jpg")} alt="Акватика" loading="lazy" />
           <PdfButton />
         </div>
       </section>

@@ -2,9 +2,10 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { base } from "../__core/app";
-import { db } from "../database";
+import { db } from "../database/client";
 import * as tables from "../database/schema";
 import { session, settings, throttle } from "../lib/security";
+import { recordView } from "../lib/kv";
 
 export const gallery = {
   artworks: base.handler(() =>
@@ -36,7 +37,7 @@ export const gallery = {
       }),
     )
     .handler(async ({ input, context }) => {
-      throttle(context.headers, "request", 10);
+      await throttle(context.headers, "request", 10);
       let title = "";
       if (input.artworkId) {
         const [a] = await db
@@ -66,12 +67,16 @@ export const gallery = {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: process.env.TELEGRAM_CHAT_ID,
-                text: `Новая заявка\n${input.clientName}\n${input.clientContact}\n${title || "Без выбора работы"}\n${input.message}`,
+                text: `Новая заявка\n${input.clientName}\n${input.clientContact}\n${title || "Без выбора работы"}\n${input.message}`.slice(
+                  0,
+                  4000,
+                ),
               }),
               signal: AbortSignal.timeout(8000),
             },
           );
-          notification = res.ok ? "sent" : "failed";
+          const body = await res.json().catch(() => ({ ok: false }));
+          notification = res.ok && body.ok ? "sent" : "failed";
         } catch {
           notification = "failed";
         }
@@ -81,7 +86,7 @@ export const gallery = {
   subscribe: base
     .input(z.object({ email: z.string().trim().email().max(250), consent: z.literal(true) }))
     .handler(async ({ input, context }) => {
-      throttle(context.headers, "subscribe", 10);
+      await throttle(context.headers, "subscribe", 10);
       await db
         .insert(tables.subscribers)
         .values({ email: input.email.toLowerCase() })
@@ -96,8 +101,8 @@ export const gallery = {
       }),
     )
     .handler(async ({ input, context }) => {
-      throttle(context.headers, "view", 250);
-      if (!input.route.startsWith("/admin")) await db.insert(tables.pageViews).values(input);
+      await throttle(context.headers, "view", 250);
+      if (!input.route.startsWith("/admin")) await recordView(input);
       return { success: true };
     }),
 };

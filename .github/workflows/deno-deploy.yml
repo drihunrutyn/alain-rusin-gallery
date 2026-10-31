@@ -1,0 +1,24 @@
+name: Deno Deploy
+on:
+  push:
+    branches: [deno-deploy]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alain-rusin-deno-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Submit source (Deno runs npm ci and npm run build)
+        id: deploy
+        env:
+          DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+          DENO_APP_ID: ${{ vars.DENO_APP_ID }}
+          DENO_DATABASE_INSTANCE: ${{ vars.DENO_DATABASE_INSTANCE }}
+        run: python3 packages/web/scripts/deploy-deno.py
+      - name: Build logs
+        run: echo "Revision ${{ steps.deploy.outputs.revision }} submitted. Verify build in Deno console."

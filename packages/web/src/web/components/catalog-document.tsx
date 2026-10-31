@@ -2,6 +2,7 @@ import { Document, Page, Text, View, Image, StyleSheet, Font, pdf } from "@react
 import QRCode from "qrcode";
 import { series, contacts, award, money } from "../../shared/gallery";
 import type { Artwork } from "./gallery-ui";
+import { imageUrl } from "../lib/images";
 
 const origin = () => window.location.origin;
 Font.register({ family: "Cormorant", src: origin() + "/fonts/CormorantGaramond-Regular.ttf" });
@@ -52,7 +53,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
   const doc = (
     <Document title="Каталог работ — Alain Rusin" author="Алексей Русин">
       <Page size="A4" style={style.page}>
-        <Image src={origin() + "/images/logo.png"} style={style.logo} />
+        <Image src={imageUrl("/images/logo.png").startsWith("https:") ? imageUrl("/images/logo.png") : origin()+"/images/logo.png"} style={style.logo} />
         <Text style={style.title}>Каталог работ</Text>
         <Text style={{ textAlign: "center", fontSize: 15 }}>{new Date().getFullYear()}</Text>
         <View style={style.line} />
@@ -63,7 +64,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         <Page key={a.id} size="A4" style={style.page}>
           <Text style={style.series}>{series.find((s) => s.id === a.series)?.title}</Text>
           <Image
-            src={a.imageUrl.startsWith("/") ? origin() + a.imageUrl : a.imageUrl}
+            src={imageUrl(a.imageUrl).startsWith("/") ? origin() + imageUrl(a.imageUrl) : imageUrl(a.imageUrl)}
             style={style.image}
           />
           <Text style={style.artworkTitle}>{a.title}</Text>
@@ -86,7 +87,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         </Page>
       ))}
       <Page size="A4" style={style.page}>
-        <Image src={origin() + "/images/logo.png"} style={style.logo} />
+        <Image src={imageUrl("/images/logo.png").startsWith("https:") ? imageUrl("/images/logo.png") : origin()+"/images/logo.png"} style={style.logo} />
         <Text style={style.title}>Контакты</Text>
         <Text style={{ textAlign: "center", marginBottom: 25 }}>{profile.city}</Text>
         {contacts.map((c) => (

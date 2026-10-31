@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { series, aboutText } from "../../shared/gallery";
 import { useArtworks } from "../queries/gallery";
+import { imageUrl } from "../lib/images";
 import {
   ArtworkCard,
   AwardLine,
@@ -40,7 +41,7 @@ export default function Home() {
         </div>
         <div className="hero-art">
           <img
-            src="/images/hero-art.jpg"
+            src={imageUrl("/images/hero-art.jpg")}
             alt="Тихая жизнь, Северная Пальмира, Цветы Ириды — триптих Алексея Русина"
             fetchPriority="high"
           />
@@ -73,7 +74,7 @@ export default function Home() {
           {series.map((s) => (
             <Link to={`/gallery?series=${s.id}`} key={s.id} className="series-card">
               <div className={`series-image ${s.id}`}>
-                <img src={s.image} alt={s.title} loading="lazy" />
+                <img src={imageUrl(s.image)} alt={s.title} loading="lazy" />
                 <span className="series-number">{s.number}</span>
               </div>
               <div className="series-title">
@@ -117,7 +118,7 @@ export default function Home() {
       </section>
       <section className="container artist-section section">
         <div className="artist-image">
-          <img src="/images/artist-portrait.jpg" alt="Алексей Русин (Alain Rusin)" loading="lazy" />
+          <img src={imageUrl("/images/artist-portrait.jpg")} alt="Алексей Русин (Alain Rusin)" loading="lazy" />
         </div>
         <div className="artist-copy">
           <span className="eyebrow">О художнике / 03</span>

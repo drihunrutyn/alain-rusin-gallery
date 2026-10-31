@@ -1,0 +1,9 @@
+{
+  "nodeModulesDir": "manual",
+  "unstable": ["kv", "cron"],
+  "deploy": {
+    "install": "npm ci",
+    "build": "npm run build",
+    "runtime": { "type": "dynamic", "entrypoint": "packages/web/dist-edge/server.js" }
+  }
+}

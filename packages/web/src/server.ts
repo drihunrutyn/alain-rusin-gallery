@@ -1,25 +1,19 @@
-import app from "./api";
-import { db } from "./api/database";
-import { artworks } from "./api/database/schema";
-import { eq } from "drizzle-orm";
-import { session } from "./api/lib/security";
 import { routeMetadata } from "./shared/metadata";
+import { staticStream, indexHtml } from "./static-files";
 
-const dist = `${import.meta.dirname}/../dist`;
 const escape = (v: string) =>
   v.replace(
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
-const server = Bun.serve({
-  port: Number(process.env.PORT ?? 3000),
-  async fetch(request) {
+export default {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     try {
       if (path.startsWith("/api/")) {
-        if (path.startsWith("/api/admin/") && !(await session(request.headers)))
-          return Response.json({ error: "Unauthorized" }, { status: 401 });
+        if (path === "/api/health") return Response.json({ status: "ok" });
+        const { default: app } = await import("./api");
         return app.fetch(request);
       }
       const base = (process.env.WEBSITE_URL || url.origin).replace(/\/$/, "");
@@ -29,6 +23,8 @@ const server = Bun.serve({
           { headers: { "Content-Type": "text/plain" } },
         );
       if (path === "/sitemap.xml") {
+        const { db } = await import("./api/database/client");
+        const { artworks } = await import("./api/database/schema");
         const rows = await db.select().from(artworks);
         const routes = [...Object.keys(routeMetadata), ...rows.map((a) => `/artwork/${a.id}`)];
         return new Response(
@@ -36,28 +32,28 @@ const server = Bun.serve({
           { headers: { "Content-Type": "application/xml" } },
         );
       }
-      if (path.startsWith("/admin") && path !== "/admin/login" && !(await session(request.headers)))
-        return new Response(null, {
-          status: 302,
-          headers: { Location: "/admin/login", "Cache-Control": "no-store" },
-        });
+      if (path.startsWith("/admin") && path !== "/admin/login") {
+        const { session } = await import("./api/lib/security");
+        if (!(await session(request.headers)))
+          return new Response(null, {
+            status: 302,
+            headers: { Location: "/admin/login", "Cache-Control": "no-store" },
+          });
+      }
       const clean = decodeURIComponent(path).replace(/^\/+/, "");
-      if (clean.split("/").includes("..")) return new Response("Not found", { status: 404 });
-      const file = Bun.file(`${dist}/${clean}`);
-      if (clean && (await file.exists()))
-        return new Response(file, {
-          headers: {
-            "Cache-Control": path.startsWith("/assets/")
-              ? "public, max-age=31536000, immutable"
-              : "public, max-age=3600",
-          },
-        });
-      const index = Bun.file(`${dist}/index.html`);
-      if (!(await index.exists())) return new Response("Build output not found", { status: 503 });
+      if (clean.split("/").includes("..") || clean.includes("\\") || clean.includes("\0"))
+        return new Response("Not found", { status: 404 });
+      if (clean && /\.[a-z0-9]+$/i.test(clean)) {
+        const response = await staticStream(clean, request.method === "HEAD");
+        return response ?? new Response("Not found", { status: 404 });
+      }
       let meta = routeMetadata[path];
       let jsonLd: Record<string, unknown> | undefined;
       let status = 200;
       if (path.startsWith("/artwork/")) {
+        const { db } = await import("./api/database/client");
+        const { artworks } = await import("./api/database/schema");
+        const { eq } = await import("drizzle-orm");
         const [a] = await db
           .select()
           .from(artworks)
@@ -99,7 +95,7 @@ const server = Bun.serve({
           : "Этот зал временно на реставрации — Alain Rusin",
         description: "Алексей Русин (Alain Rusin)",
       };
-      let html = await index.text();
+      let html = await indexHtml();
       html = html
         .replace(/<title>.*?<\/title>/, `<title>${escape(meta.title)}</title>`)
         .replace(
@@ -124,5 +120,4 @@ const server = Bun.serve({
       return new Response("Service temporarily unavailable", { status: 503 });
     }
   },
-});
-console.log(`Web server listening on port ${server.port}`);
+};

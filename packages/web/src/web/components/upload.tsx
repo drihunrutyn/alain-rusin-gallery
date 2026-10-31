@@ -2,6 +2,30 @@ import { useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { client } from "../lib/api";
 import { ErrorMessage } from "./gallery-ui";
+export async function optimizeImage(file: File): Promise<Blob> {
+  const image = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    const scale = Math.min(1, 2000 / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas недоступен в этом браузере");
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) =>
+          blob?.type === "image/webp"
+            ? resolve(blob)
+            : reject(new Error("Браузер не поддерживает WebP")),
+        "image/webp",
+        0.8,
+      ),
+    );
+  } finally {
+    image.close();
+  }
+}
 export function ImageUpload({
   value,
   onChange,
@@ -22,16 +46,17 @@ export function ImageUpload({
     setPending(true);
     setError("");
     try {
+      const optimized = await optimizeImage(file);
       const result = await client.management.upload({
-        filename: file.name,
-        contentType: file.type as "image/jpeg" | "image/png" | "image/webp",
-        size: file.size,
+        filename: file.name.replace(/\.[^.]+$/, "") + ".webp",
+        contentType: "image/webp",
+        size: optimized.size,
         type,
       });
       const response = await fetch(result.url, {
         method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type, "x-amz-acl": "public-read" },
+        body: optimized,
+        headers: { "Content-Type": "image/webp", "x-amz-acl": "public-read" },
       });
       if (!response.ok) throw new Error("Не удалось загрузить изображение");
       onChange(result.publicUrl);

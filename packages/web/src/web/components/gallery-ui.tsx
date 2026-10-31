@@ -3,6 +3,7 @@ import { ArrowUpRight, ArrowRight, Menu, X, Check, LoaderCircle } from "lucide-r
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from "react";
 import { series, statuses, contacts, money, award } from "../../shared/gallery";
 import { client } from "../lib/api";
+import { imageUrl } from "../lib/images";
 
 export type Artwork = Awaited<ReturnType<typeof client.gallery.artworks>>[number];
 export const IconArrow = ({ diagonal = false }: { diagonal?: boolean }) =>
@@ -37,7 +38,7 @@ export function Header() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="brand" aria-label="Alain Rusin — главная">
-          <img src="/images/logo.png" alt="Alain Rusin" />
+          <img src={imageUrl("/images/logo.png")} alt="Alain Rusin" />
         </Link>
         <nav className={open ? "nav open" : "nav"} aria-label="Основная навигация">
           {links.map(([href, label]) => (
@@ -87,7 +88,7 @@ export function Footer() {
       <div className="container footer-grid">
         <div>
           <Link to="/" className="brand footer-brand">
-            <img src="/images/logo.png" alt="Alain Rusin" loading="lazy" />
+            <img src={imageUrl("/images/logo.png")} alt="Alain Rusin" loading="lazy" />
           </Link>
           <p className="muted">
             Алексей Русин (Alain Rusin)
@@ -177,7 +178,7 @@ export function ArtworkCard({ item }: { item: Artwork }) {
   return (
     <Link to={`/artwork/${item.id}`} className="artwork-card">
       <div className="artwork-image">
-        <img src={item.imageUrl} alt={item.title} loading="lazy" />
+        <img src={imageUrl(item.imageUrl)} alt={item.title} loading="lazy" />
         <span className={`status ${item.status}`}>
           {statuses[item.status as keyof typeof statuses]}
         </span>
@@ -209,7 +210,7 @@ export function ArchiveBanner() {
         aria-label="Полный архив работ и выставок — на Артхиве"
       >
         <img
-          src="/images/artchive-cta.jpg"
+          src={imageUrl("/images/artchive-cta.jpg")}
           alt="Полный архив работ и выставок. 40+ работ, статьи и хроника выставок — на Артхиве."
           loading="lazy"
         />

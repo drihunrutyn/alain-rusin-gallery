@@ -3,9 +3,11 @@ import { eq, desc } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { db } from "../database";
+import { db } from "../database/client";
 import * as t from "../database/schema";
-import { admin, settings, setSetting, validPassword } from "../lib/security";
+import { admin, settings, setSetting, validPassword, revokeAllSessions } from "../lib/security";
+import { hashPassword } from "../lib/password";
+import { metricSnapshot } from "../lib/kv";
 import { artworkInput, contentInput } from "../../shared/gallery";
 
 const itemId = z.object({ id: z.string().uuid() });
@@ -76,14 +78,13 @@ export const management = {
     const [works, requests, views, subscriptions] = await Promise.all([
       db.select().from(t.artworks),
       db.select().from(t.requests).orderBy(desc(t.requests.createdAt)),
-      db.select().from(t.pageViews),
+      metricSnapshot(),
       db.select().from(t.subscribers),
     ]);
     const now = new Date();
-    const cutoff = new Date(now.getTime() - 30 * 86400000).toISOString();
     const days = Array.from({ length: 30 }, (_, i) => {
       const key = new Date(now.getTime() - (29 - i) * 86400000).toISOString().slice(0, 10);
-      return { label: key, count: views.filter((v) => v.viewedAt.startsWith(key)).length };
+      return { label: key, count: views.days[key] ?? 0 };
     });
     const months = Array.from({ length: 6 }, (_, i) => {
       const key = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + i, 1))
@@ -95,14 +96,14 @@ export const management = {
       .map((a) => ({
         id: a.id,
         title: a.title,
-        views: views.filter((v) => v.artworkId === a.id).length,
+        views: views.artworks[a.id] ?? 0,
       }))
       .sort((a, b) => b.views - a.views)
       .slice(0, 5);
     return {
       available: works.filter((a) => a.status === "available").length,
       newRequests: requests.filter((r) => r.status === "new").length,
-      views30: views.filter((v) => v.viewedAt >= cutoff).length,
+      views30: days.reduce((sum, day) => sum + day.count, 0),
       subscribers: subscriptions.length,
       days,
       months,
@@ -137,11 +138,8 @@ export const management = {
     .handler(async ({ input }) => {
       if (!(await validPassword(process.env.ADMIN_LOGIN ?? "", input.currentPassword)))
         throw new ORPCError("BAD_REQUEST", { message: "Текущий пароль неверен" });
-      await setSetting(
-        "password_hash",
-        await Bun.password.hash(input.newPassword, { algorithm: "argon2id" }),
-      );
-      await setSetting("session_version", crypto.randomUUID());
+      await setSetting("password_hash", await hashPassword(input.newPassword));
+      await revokeAllSessions(crypto.randomUUID());
       return { success: true };
     }),
   upload: admin

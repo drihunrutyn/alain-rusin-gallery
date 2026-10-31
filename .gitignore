@@ -4,6 +4,7 @@ node_modules
 # output
 out
 dist
+dist-edge
 dist-electron
 release
 web-build
@@ -77,6 +78,9 @@ android
 scripts/
 !packages/web/scripts/
 !packages/web/scripts/seed.ts
+!packages/web/scripts/build-edge.mjs
+!packages/web/scripts/deploy-deno.py
+!packages/web/scripts/migrate-kv.ts
 !packages/mobile/scripts/
 packages/mobile/scripts/*
 !packages/mobile/scripts/generate-ios-certs.py
