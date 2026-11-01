@@ -13,12 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Submit source (Deno runs npm ci and npm run build)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Build with native Node (Deno runs only the built server)
+        run: |
+          npm ci
+          npm run build
+          node packages/web/scripts/build-deno.mjs --seal
+      - name: Submit verified build and source to Deno
         id: deploy
         env:
           DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
           DENO_APP_ID: ${{ vars.DENO_APP_ID }}
           DENO_DATABASE_INSTANCE: ${{ vars.DENO_DATABASE_INSTANCE }}
         run: python3 packages/web/scripts/deploy-deno.py
-      - name: Build logs
-        run: echo "Revision ${{ steps.deploy.outputs.revision }} submitted. Verify build in Deno console."
+      - name: Smoke test production
+        run: |
+          curl --fail --silent --show-error https://alain-rusin.alainrusin.deno.net/api/health
+          curl --fail --silent --show-error https://alain-rusin.alainrusin.deno.net/sitemap.xml > /dev/null
