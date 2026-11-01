@@ -13,7 +13,7 @@ function walk(dir) {
     return entry.isDirectory() ? walk(path) : [path];
   });
 }
-if (existsSync(marker) && !process.argv.includes("--seal")) {
+if (typeof globalThis.Deno !== "undefined" && existsSync(marker) && !process.argv.includes("--seal")) {
   const manifest = JSON.parse(readFileSync(marker, "utf8"));
   for (const [name, expected] of Object.entries(manifest.files)) {
     if (!name.startsWith("packages/web/dist/") && !name.startsWith("packages/web/dist-edge/"))

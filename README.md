@@ -3,9 +3,10 @@
 Полная серверная версия на утверждённом стеке Runable: Bun, Vite, React, Hono, TypeScript strict, Drizzle. Публичные страницы и закрытый кабинет работают с одной внешней базой Turso (SQLite) и внешним Tigris S3-хранилищем. Next.js и Supabase в этой реализации не используются.
 
 ## Работающее развёртывание
-- Сайт: https://alain-rusin.onrender.com
-- Вход в кабинет: https://alain-rusin.onrender.com/admin/login
+- Сайт: https://alain-rusin.alainrusin.deno.net
+- Вход в кабинет: https://alain-rusin.alainrusin.deno.net/admin/login
 - Приватный исходный код: https://github.com/drihunrutyn/alain-rusin-gallery
+- Deno Deploy: приложение `alain-rusin`, ветка `deno-deploy`. Render ниже оставлен как резерв, без отключения и удаления данных.
 - Render: Docker Web Service `alain-rusin`, Free ($0/month), Oregon, ветка `main`; полная серверная версия, не static site. GitHub App получила доступ только к этому новому репозиторию, остальные выбранные репозитории сохранены.
 - Проверено 29 октября 2026: Render сообщил Live, health 200, страницы/SEO/404, анонимный доступ запрещён, вход/выход, CRUD работ и контента, заявки, подписка, аналитика, загрузка в Tigris и публичное чтение, фильтры, примерка, мобильная вёрстка, PDF (6 страниц A4, кириллица). Браузерных ошибок нет. Тестовые записи и объект удалены; тестовые просмотры остались в аналитике. Фактическая смена пароля не выполнялась, проверен отказ при неверном текущем пароле.
 
@@ -29,7 +30,17 @@
 
 Файлы и папки с `__` — управляемая инфраструктура, их нельзя менять. Обязательная аналитика Runable сохранена.
 
-## Render Free из приватного GitHub
+## Deno Deploy из приватного GitHub
+1. Push в `deno-deploy` запускает `.github/workflows/deno-deploy.yml`.
+2. GitHub Actions собирает frontend и SSR-сервер на Node 24: `npm ci`, `npm run build`. Это обходит несовместимость jsdom/@exodus/bytes со сборкой Vite внутри Deno.
+3. `build-deno.mjs --seal` создаёт SHA-256-манифест. В Deno отправляются исходники, `dist` и `dist-edge`; `.env` и зависимости из локального `node_modules` не отправляются.
+4. Deno выполняет `npm ci` и `npm run build`: уже собранные файлы проверяются по манифесту, Vite повторно не запускается. Entry point — `packages/web/dist-edge/server.js`.
+5. GitHub secret: `DENO_DEPLOY_TOKEN`; variables: `DENO_APP_ID`, `DENO_DATABASE_INSTANCE`. Секреты приложения остаются в Deno, Turso и Tigris не заменяются.
+6. В production `Deno.openKv()` использует подключённую управляемую базу для сессий, ограничений частоты и метрик. `:memory:` допустим только при локальной разработке. Не задавать `DENO_KV_URL=:memory:` в production.
+7. Workflow читает поток прогресса до конечного статуса. Ошибка сборки завершает workflow с ошибкой; прежняя успешная ревизия остаётся рабочей. После успеха проверяются health и sitemap.
+8. Telegram остаётся выключенным до настройки `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`.
+
+## Render Free из приватного GitHub (резерв)
 1. Новый приватный репозиторий, исключены `.env`, токены, пароли, QA, локальные базы, логи. **`.runable/ports.json` нужно сохранить в Git**: его читает `__ports.cjs` при сборке.
 2. Render → New Web Service → Git Provider → нужный репозиторий, Docker, ветка main, корень. Выбрать **Free ($0/month)**, не платный тариф.
 3. Перенести только переменные, которые использует сайт: `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `ADMIN_LOGIN`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APPLICATION_ID`, `WEBSITE_URL`. Последняя — фактический HTTPS-адрес сервиса. Секрет сессии — случайный минимум 32 символа.

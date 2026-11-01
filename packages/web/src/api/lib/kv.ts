@@ -33,7 +33,8 @@ export function getKv(): Promise<KV> {
   if (!connection) {
     if (deno)
       connection = deno.openKv(
-        process.env.DENO_DEPLOY ? undefined : (process.env.DENO_KV_URL ?? ":memory:"),
+        process.env.DENO_KV_URL ??
+          (process.env.NODE_ENV === "production" ? undefined : ":memory:"),
       );
     else if (process.env.NODE_ENV !== "production") connection = Promise.resolve(memoryKv());
     else throw new Error("Production sessions and metrics require Deno KV");
