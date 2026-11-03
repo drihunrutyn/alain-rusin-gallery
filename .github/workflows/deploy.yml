@@ -1,52 +1,67 @@
-name: Deploy to GitHub Pages
+name: Deploy static storefront
 
 on:
   push:
-    branches: [main]
+    branches: [main, github-pages]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: storefront-pages
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
+          # main remains the existing Render app; Pages uses its own source branch.
+          ref: github-pages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - run: bun install --frozen-lockfile
+      - run: bun run test:static
+      - uses: actions/configure-pages@v5
+      - name: Build live public catalog
         env:
-          NEXT_PUBLIC_SITE_URL: https://drihunrutyn.github.io/alain-rusin-gallery
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+          APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+          PAGES_BASE_PATH: /alain-rusin-gallery/
+          PUBLIC_SITE_URL: https://drihunrutyn.github.io/alain-rusin-gallery
+          ADMIN_SITE_URL: https://alain-rusin.onrender.com
+        run: |
+          test -n "$DATABASE_URL" || { echo 'Missing DATABASE_URL secret'; exit 1; }
+          test -n "$DATABASE_AUTH_TOKEN" || { echo 'Missing DATABASE_AUTH_TOKEN secret'; exit 1; }
+          npm run build
+          test -f out/index.html
+          test -f out/gallery/index.html
+          test ! -d out/admin
+          test ! -d out/api
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: out
 
   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Publish storefront
         id: deployment
         uses: actions/deploy-pages@v4
