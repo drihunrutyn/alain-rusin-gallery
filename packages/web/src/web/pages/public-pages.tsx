@@ -1,8 +1,9 @@
+import { assetUrl } from "../lib/site";
 import { useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { ArrowUpRight, SlidersHorizontal, X } from "lucide-react";
 import { aboutText, series, statuses, contentTypes, money } from "../../shared/gallery";
-import { useArtworks, useArtwork, useMedia } from "../queries/gallery";
+import { useArtworks, useArtwork, useMedia } from "../public-data";
 import {
   ArtworkCard,
   ArchiveBanner,
@@ -17,9 +18,7 @@ import { PdfButton } from "../components/pdf-catalog";
 export function Gallery() {
   const works = useArtworks();
   const [path] = useLocation();
-  const [selected, setSelected] = useState(
-    new URLSearchParams(window.location.search).get("series") || "",
-  );
+  const [selected, setSelected] = useState("");
   const [technique, setTechnique] = useState("");
   const [status, setStatus] = useState("");
   const [filters, setFilters] = useState(false);
@@ -159,7 +158,7 @@ export function ArtworkPage() {
         </Link>
         <div className="detail-grid">
           <div className="detail-image">
-            <img src={a.imageUrl} alt={a.title} />
+            <img src={assetUrl(a.imageUrl)} alt={a.title} />
           </div>
           <div className="detail-copy">
             <span className="eyebrow">
@@ -213,7 +212,7 @@ export function About() {
       </section>
       <section className="container about-grid">
         <div className="about-photo">
-          <img src="/images/artist-portrait.jpg" alt="Алексей Русин" />
+          <img src={assetUrl("/images/artist-portrait.jpg")}  alt="Алексей Русин" />
         </div>
         <div className="prose">
           {aboutText.split(/(?<=\.) /).map((p, i) => (
@@ -272,7 +271,7 @@ export function Media() {
               ?.filter((c) => c.type === tab)
               .map((c) => (
                 <article key={c.id} className="media-card">
-                  {c.imageUrl && <img src={c.imageUrl} alt={c.title} loading="lazy" />}
+                  {c.imageUrl && <img src={assetUrl(c.imageUrl)} alt={c.title} loading="lazy" />}
                   {c.embedUrl && (
                     <iframe
                       src={c.embedUrl}
@@ -362,7 +361,7 @@ export function B2B() {
           <h2>
             Каталог <em>работ</em>
           </h2>
-          <img src="/images/seeds/aquatika.jpg" alt="Акватика" loading="lazy" />
+          <img src={assetUrl("/images/seeds/aquatika.jpg")}  alt="Акватика" loading="lazy" />
           <PdfButton />
         </div>
       </section>

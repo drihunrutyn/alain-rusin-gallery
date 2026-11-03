@@ -7,6 +7,8 @@ import { db } from "../database";
 import * as t from "../database/schema";
 import { admin, settings, setSetting, validPassword } from "../lib/security";
 import { artworkInput, contentInput } from "../../shared/gallery";
+import { manualRequestInput, requestStatus } from "../../shared/requests";
+import { requestRebuild } from "../lib/rebuild";
 
 const itemId = z.object({ id: z.string().uuid() });
 function safeUrl(value: string, embed = false) {
@@ -33,7 +35,13 @@ function videoEmbed(value: string) {
     : safeUrl(value, true);
 }
 export const management = {
-  artworks: admin.handler(() => db.select().from(t.artworks).orderBy(desc(t.artworks.createdAt))),
+  rebuild: admin.handler(() => requestRebuild()),
+  rooms: admin.handler(() => db.select().from(t.rooms)),
+  profile: admin.handler(async () => { const s = await settings(); return { email: s.email || "telnov.aleosch@yandex.ru", city: s.city || "Санкт-Петербург" }; }),
+  artworks: admin.handler(async () => {
+    const rows = await db.select().from(t.artworks).orderBy(desc(t.artworks.createdAt));
+    return rows.map(a => ({ ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }));
+  }),
   saveArtwork: admin.input(artworkInput).handler(async ({ input }) => {
     const { id, ...data } = input;
     if (id) {
@@ -66,10 +74,17 @@ export const management = {
     return { success: true };
   }),
   requests: admin.handler(() => db.select().from(t.requests).orderBy(desc(t.requests.createdAt))),
+  createRequest: admin.input(manualRequestInput).handler(async ({ input }) => {
+    const [artwork] = await db.select().from(t.artworks).where(eq(t.artworks.id, input.artworkId));
+    if (!artwork) throw new ORPCError("NOT_FOUND", { message: "Работа больше не существует. Обновите список." });
+    const [row] = await db.insert(t.requests).values({ ...input, artworkTitle: artwork.title, message: "Добавлена вручную из почты/VK" }).returning();
+    return row!;
+  }),
   processRequest: admin
-    .input(z.object({ id: z.string().uuid(), status: z.enum(["new", "processed"]) }))
+    .input(z.object({ id: z.string().uuid(), status: requestStatus }))
     .handler(async ({ input }) => {
-      await db.update(t.requests).set({ status: input.status }).where(eq(t.requests.id, input.id));
+      const [row] = await db.update(t.requests).set({ status: input.status }).where(eq(t.requests.id, input.id)).returning();
+      if (!row) throw new ORPCError("NOT_FOUND");
       return { success: true };
     }),
   stats: admin.handler(async () => {
@@ -115,7 +130,7 @@ export const management = {
     return {
       email: s.email ?? "",
       city: s.city ?? "Санкт-Петербург",
-      telegramConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+
     };
   }),
   saveSettings: admin

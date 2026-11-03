@@ -3,8 +3,9 @@ import { ArrowUpRight, ArrowRight, Menu, X, Check, LoaderCircle } from "lucide-r
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from "react";
 import { series, statuses, contacts, money, award } from "../../shared/gallery";
 import { client } from "../lib/api";
+import { adminSiteUrl, assetUrl, requestLinks } from "../lib/site";
 
-export type Artwork = Awaited<ReturnType<typeof client.gallery.artworks>>[number];
+export type Artwork = import("../../shared/gallery").ArtworkData;
 export const IconArrow = ({ diagonal = false }: { diagonal?: boolean }) =>
   diagonal ? <ArrowUpRight size={16} /> : <ArrowRight size={16} />;
 export function Loading() {
@@ -37,7 +38,7 @@ export function Header() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="brand" aria-label="Alain Rusin — главная">
-          <img src="/images/logo.png" alt="Alain Rusin" />
+          <img src={assetUrl("/images/logo.png")}  alt="Alain Rusin" />
         </Link>
         <nav className={open ? "nav open" : "nav"} aria-label="Основная навигация">
           {links.map(([href, label]) => (
@@ -87,7 +88,7 @@ export function Footer() {
       <div className="container footer-grid">
         <div>
           <Link to="/" className="brand footer-brand">
-            <img src="/images/logo.png" alt="Alain Rusin" loading="lazy" />
+            <img src={assetUrl("/images/logo.png")}  alt="Alain Rusin" loading="lazy" />
           </Link>
           <p className="muted">
             Алексей Русин (Alain Rusin)
@@ -157,9 +158,9 @@ export function Footer() {
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} Alain Rusin</span>
         <Link to="/privacy">Персональные данные</Link>
-        <Link to="/admin/login">
+        <a href={`${adminSiteUrl}/admin/login`}>
           Личный кабинет <ArrowUpRight size={12} />
-        </Link>
+        </a>
       </div>
     </footer>
   );
@@ -177,7 +178,7 @@ export function ArtworkCard({ item }: { item: Artwork }) {
   return (
     <Link to={`/artwork/${item.id}`} className="artwork-card">
       <div className="artwork-image">
-        <img src={item.imageUrl} alt={item.title} loading="lazy" />
+        <img src={assetUrl(item.imageUrl)} alt={item.title} loading="lazy" />
         <span className={`status ${item.status}`}>
           {statuses[item.status as keyof typeof statuses]}
         </span>
@@ -209,7 +210,7 @@ export function ArchiveBanner() {
         aria-label="Полный архив работ и выставок — на Артхиве"
       >
         <img
-          src="/images/artchive-cta.jpg"
+          src={assetUrl("/images/artchive-cta.jpg")}
           alt="Полный архив работ и выставок. 40+ работ, статьи и хроника выставок — на Артхиве."
           loading="lazy"
         />
@@ -240,23 +241,15 @@ export function RequestForm({
 }) {
   const [state, setState] = useState("");
   const [consent, setConsent] = useState(false);
-  async function submit(e: FormEvent<HTMLFormElement>) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!consent) return;
     const data = new FormData(e.currentTarget);
-    setState("pending");
-    try {
-      await client.gallery.request({
-        clientName: String(data.get("name")),
-        clientContact: String(data.get("contact")),
-        artworkId: artwork?.id,
-        message: `${action}\n${String(data.get("message"))}`,
-        consent: true,
-        website: String(data.get("website") ?? ""),
-      });
-      setState("success");
-    } catch (err) {
-      setState(err instanceof Error ? err.message : "Не удалось отправить заявку");
-    }
+    const links = requestLinks(artwork?.title || "", artwork?.dimensions || "", String(data.get("contact") || ""), String(data.get("name") || ""), `${action}\n${String(data.get("message") || "")}`);
+    const button = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (button?.value === "vk") window.open(links.vk, "_blank", "noopener,noreferrer");
+    else window.location.href = links.mail;
+    setState("Ссылка открыта. Отправьте сообщение в почтовом приложении или VK — сайт не отправляет и не сохраняет заявку.");
   }
   return (
     <div className="request-panel">
@@ -268,18 +261,6 @@ export function RequestForm({
       <span className="eyebrow">Алексей Русин · Санкт-Петербург</span>
       <h2>{action}</h2>
       {artwork && <p className="muted">{artwork.title}</p>}
-      {state === "success" ? (
-        <div className="success-box">
-          <Check size={32} />
-          <h3>Заявка отправлена</h3>
-          <p>Ваш запрос сохранён.</p>
-          {onClose && (
-            <button className="button" onClick={onClose}>
-              Закрыть
-            </button>
-          )}
-        </div>
-      ) : (
         <form onSubmit={submit}>
           <label>
             Ваше имя
@@ -326,13 +307,13 @@ export function RequestForm({
               Согласен на обработку <Link to="/privacy">персональных данных</Link>
             </span>
           </label>
-          {state && state !== "pending" && <ErrorMessage message={state} />}
-          <button className="button filled" disabled={!consent || state === "pending"}>
-            {state === "pending" ? "Отправка…" : action}
-            <ArrowUpRight size={16} />
-          </button>
+          {state && <output className="muted">{state}</output>}
+          <p className="muted small">Выберите способ связи. Сообщение нужно отправить самостоятельно.</p>
+          <div className="form-actions">
+            <button type="submit" name="channel" value="mail" className="button filled" disabled={!consent}>Почта <ArrowUpRight size={16} /></button>
+            <button type="submit" name="channel" value="vk" className="button" disabled={!consent}>ВКонтакте <ArrowUpRight size={16} /></button>
+          </div>
         </form>
-      )}
     </div>
   );
 }

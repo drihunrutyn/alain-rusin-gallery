@@ -4,6 +4,8 @@ import { ping } from "./routes/ping";
 import { gallery } from "./routes/gallery";
 import { management } from "./routes/management";
 import { authRoutes } from "./auth";
+import { base } from "./__core/app";
+import { session } from "./lib/security";
 
 // API features are oRPC procedures, one file per feature in ./routes/,
 // composed into this router — typed end-to-end via the clients
@@ -14,6 +16,7 @@ import { authRoutes } from "./auth";
 export const router = {
   ping,
   gallery,
+  auth: { me: base.handler(({ context }) => session(context.headers)) },
   management,
 };
 

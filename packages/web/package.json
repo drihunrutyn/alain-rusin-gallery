@@ -6,17 +6,17 @@
     ".": "./src/api/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit && vite build",
     "dev": "vite",
     "start": "bun src/__server.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "bun run build && vite preview",
     "db:generate": "bun --env-file=../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env drizzle-kit migrate",
     "db:push": "bun --env-file=../../.env drizzle-kit push"
   },
   "dependencies": {
-    "@aws-sdk/s3-request-presigner": "^3.1159.0",
+    "@aws-sdk/s3-request-presigner": "3.1023.0",
     "@libsql/client": "^0.17.2",
     "@orpc/client": "^1.14.7",
     "@orpc/server": "^1.14.7",

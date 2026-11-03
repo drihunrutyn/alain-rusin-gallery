@@ -3,9 +3,10 @@ import QRCode from "qrcode";
 import { series, contacts, award, money } from "../../shared/gallery";
 import type { Artwork } from "./gallery-ui";
 
+import { assetUrl, publicSiteUrl } from "../lib/site";
 const origin = () => window.location.origin;
-Font.register({ family: "Cormorant", src: origin() + "/fonts/CormorantGaramond-Regular.ttf" });
-Font.register({ family: "Manrope", src: origin() + "/fonts/Manrope-Regular.ttf" });
+Font.register({ family: "Cormorant", src: origin() + assetUrl("/fonts/CormorantGaramond-Regular.ttf") });
+Font.register({ family: "Manrope", src: origin() + assetUrl("/fonts/Manrope-Regular.ttf") });
 const style = StyleSheet.create({
   page: {
     backgroundColor: "#F7F5F0",
@@ -43,7 +44,7 @@ const style = StyleSheet.create({
   },
 });
 export async function createCatalog(works: Artwork[], profile: { email: string; city: string }) {
-  const qr = await QRCode.toDataURL(origin(), {
+  const qr = await QRCode.toDataURL(publicSiteUrl, {
     margin: 1,
     width: 250,
     color: { dark: "#2C2C2C", light: "#F7F5F0" },
@@ -52,7 +53,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
   const doc = (
     <Document title="Каталог работ — Alain Rusin" author="Алексей Русин">
       <Page size="A4" style={style.page}>
-        <Image src={origin() + "/images/logo.png"} style={style.logo} />
+        <Image src={origin() + assetUrl("/images/logo.png")} style={style.logo} />
         <Text style={style.title}>Каталог работ</Text>
         <Text style={{ textAlign: "center", fontSize: 15 }}>{new Date().getFullYear()}</Text>
         <View style={style.line} />
@@ -63,7 +64,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         <Page key={a.id} size="A4" style={style.page}>
           <Text style={style.series}>{series.find((s) => s.id === a.series)?.title}</Text>
           <Image
-            src={a.imageUrl.startsWith("/") ? origin() + a.imageUrl : a.imageUrl}
+            src={a.imageUrl.startsWith("/") ? origin() + assetUrl(a.imageUrl) : a.imageUrl}
             style={style.image}
           />
           <Text style={style.artworkTitle}>{a.title}</Text>
@@ -86,7 +87,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         </Page>
       ))}
       <Page size="A4" style={style.page}>
-        <Image src={origin() + "/images/logo.png"} style={style.logo} />
+        <Image src={origin() + assetUrl("/images/logo.png")} style={style.logo} />
         <Text style={style.title}>Контакты</Text>
         <Text style={{ textAlign: "center", marginBottom: 25 }}>{profile.city}</Text>
         {contacts.map((c) => (
@@ -98,7 +99,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
           <Text style={{ textAlign: "center", marginBottom: 12 }}>{profile.email}</Text>
         )}
         <Image src={qr} style={{ width: 110, height: 110, alignSelf: "center", marginTop: 35 }} />
-        <Text style={{ ...style.small, textAlign: "center", marginTop: 15 }}>{origin()}</Text>
+        <Text style={{ ...style.small, textAlign: "center", marginTop: 15 }}>{publicSiteUrl}</Text>
       </Page>
     </Document>
   );

@@ -1,6 +1,7 @@
+import { assetUrl } from "../lib/site";
 import { useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { useRooms } from "../queries/gallery";
+import { useRooms } from "../public-data";
 import type { Artwork } from "./gallery-ui";
 
 export function RoomSimulator({ artwork, onRequest }: { artwork: Artwork; onRequest: () => void }) {
@@ -52,7 +53,7 @@ export function RoomSimulator({ artwork, onRequest }: { artwork: Artwork; onRequ
             onClick={() => setScene(r.imageUrl)}
             aria-label="Загруженный интерьер"
           >
-            <img src={r.imageUrl} alt="Интерьер" />
+            <img src={assetUrl(r.imageUrl)} alt="Интерьер" />
           </button>
         ))}
       </div>
@@ -120,7 +121,7 @@ export function RoomSimulator({ artwork, onRequest }: { artwork: Artwork; onRequ
             }
           }}
         >
-          <img src={artwork.imageUrl} alt={artwork.title} draggable={false} />
+          <img src={assetUrl(artwork.imageUrl)} alt={artwork.title} draggable={false} />
         </button>
       </div>
       <div className="room-controls">

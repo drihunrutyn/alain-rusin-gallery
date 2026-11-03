@@ -9,7 +9,7 @@
     "dev": "cd packages/web && bunx vite",
     "dev:desktop": "cd packages/desktop && bunx vite",
     "dev:mobile": "cd packages/mobile && bunx expo start --port $(bun --print \"require('../../__ports.cjs').mobile\")",
-    "build": "turbo build",
+    "build": "bun run packages/web/scripts/build-static.ts",
     "build:web": "cd packages/web && bunx vite build",
     "start": "pm2 startOrRestart ecosystem.config.cjs --update-env",
     "stop": "pm2 delete web-app 2>/dev/null || true",
@@ -20,7 +20,10 @@
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
     "db:push": "turbo db:push",
-    "internal:kill-port": "lsof -t -i :$(bun --print \"require('./__ports.cjs').website\") | xargs kill -9"
+    "internal:kill-port": "lsof -t -i :$(bun --print \"require('./__ports.cjs').website\") | xargs kill -9",
+    "build:all": "turbo build",
+    "build:admin": "bun run --cwd packages/web build",
+    "test:static": "bun test packages/web/tests"
   },
   "devDependencies": {
     "@runablehq/runkit": "0.1.1",

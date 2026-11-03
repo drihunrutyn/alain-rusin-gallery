@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
-import { client } from "../lib/api";
+import { usePublicData } from "../public-data";
+import type { PublicSnapshot } from "../../shared/public-data";
 import { ErrorMessage } from "./gallery-ui";
 
-export function PdfButton() {
+export function PdfButton({ loadData }: { loadData?: () => Promise<Pick<PublicSnapshot, "artworks" | "profile">> }) {
+  const data = usePublicData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function download() {
     setPending(true);
     setError("");
     try {
-      const [works, profile, { createCatalog }] = await Promise.all([
-        client.gallery.artworks(),
-        client.gallery.profile(),
+      const [catalog, { createCatalog }] = await Promise.all([
+        loadData ? loadData() : Promise.resolve(data),
         import("./catalog-document"),
       ]);
+      const works = catalog.artworks;
+      const profile = catalog.profile;
       const blob = await createCatalog(
         works.filter((a) => a.status === "available"),
         profile,

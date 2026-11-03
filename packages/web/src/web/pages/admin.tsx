@@ -24,7 +24,7 @@ import {
   useAdminRequests,
   useAdminStats,
   useAdminSettings,
-  useRooms,
+  useAdminRooms,
   useSubscribers,
 } from "../queries/gallery";
 import {
@@ -38,6 +38,19 @@ import {
 import { Loading, ErrorMessage, type Artwork } from "../components/gallery-ui";
 import { ImageUpload } from "../components/upload";
 import { PdfButton } from "../components/pdf-catalog";
+import { publicSiteUrl } from "../lib/site";
+import { requestStatuses, normalizedRequestStatus } from "../../shared/requests";
+function AdminPdfButton() {
+  return <PdfButton loadData={async () => {
+    const [artworks, profile] = await Promise.all([client.management.artworks(), client.management.profile()]);
+    return { artworks, profile };
+  }} />;
+}
+async function rebuildNotice() {
+  try { const result = await client.management.rebuild(); return result.message; }
+  catch { return "Изменения сохранены, но пересборка не запущена. Запустите workflow вручную."; }
+}
+
 
 type MediaItem = Awaited<ReturnType<typeof client.management.content>>[number];
 type Request = Awaited<ReturnType<typeof client.management.requests>>[number];
@@ -75,9 +88,9 @@ export function AdminLogin() {
   if (me.data) return <Redirect to="/admin" />;
   return (
     <main className="login-screen">
-      <Link to="/" className="brand">
+      <a href={publicSiteUrl} className="brand">
         <img src="/images/logo.png" alt="Alain Rusin" />
-      </Link>
+      </a>
       <div className="login-panel">
         <LockKeyhole size={23} />
         <span className="eyebrow">Alain Rusin</span>
@@ -104,9 +117,9 @@ export function AdminLogin() {
           </button>
         </form>
       </div>
-      <Link to="/" className="text-link">
+      <a href={publicSiteUrl} className="text-link">
         Вернуться на сайт
-      </Link>
+      </a>
     </main>
   );
 }
@@ -134,9 +147,9 @@ export function Admin() {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <Link to="/" className="brand">
+        <a href={publicSiteUrl} className="brand">
           <img src="/images/logo.png" alt="Alain Rusin" />
-        </Link>
+        </a>
         <p className="eyebrow">Личный кабинет</p>
         <nav aria-label="Управление сайтом">
           {nav.map(([href, title, Icon]) => (
@@ -155,10 +168,10 @@ export function Admin() {
           ))}
         </nav>
         <div className="admin-sidebar-bottom">
-          <Link to="/" className="text-link">
+          <a href={publicSiteUrl} className="text-link">
             Открыть сайт
             <ArrowUpRight size={15} />
-          </Link>
+          </a>
           <button
             className="text-link"
             onClick={async () => {
@@ -245,7 +258,7 @@ function Dashboard() {
   async function process(id: string) {
     setBusy(id);
     try {
-      await client.management.processRequest({ id, status: "processed" });
+      await client.management.processRequest({ id, status: "in_progress" });
       await qc.invalidateQueries();
     } catch (e) {
       setError(errorText(e));
@@ -263,14 +276,14 @@ function Dashboard() {
           <span className="eyebrow">Личный кабинет</span>
           <h1>Дашборд</h1>
         </div>
-        <PdfButton />
+        <AdminPdfButton />
       </div>
       <div className="stats-grid">
-        {[
+        {([
           ["Работ в наличии", s.available, Image],
           ["Новые заявки", s.newRequests, Inbox],
           ["Просмотры за 30 дней", s.views30, Eye],
-        ].map(([label, value, Icon]) => (
+        ] as const).map(([label, value, Icon]) => (
           <div className="stat-card" key={String(label)}>
             <div>
               <span>{String(label)}</span>
@@ -288,10 +301,10 @@ function Dashboard() {
         <section className="admin-card">
           <h3>Топ-5 работ по просмотрам</h3>
           {s.top.map((a) => (
-            <Link className="top-artwork" key={a.id} to={`/artwork/${a.id}`}>
+            <a className="top-artwork" key={a.id} href={`${publicSiteUrl}/artwork/${a.id}/`}>
               <span>{a.title}</span>
               <span>{a.views}</span>
-            </Link>
+            </a>
           ))}
         </section>
         <section className="admin-card">
@@ -333,6 +346,7 @@ function ArtworksAdmin() {
     setBusy(id);
     try {
       await client.management.deleteArtwork({ id });
+      setError(await rebuildNotice());
       await qc.invalidateQueries();
     } catch (e) {
       setError(errorText(e));
@@ -349,6 +363,7 @@ function ArtworksAdmin() {
     );
     try {
       await client.management.saveArtwork(artworkInput.parse({ ...a, isFeatured: !a.isFeatured }));
+      setError(await rebuildNotice());
       await qc.invalidateQueries();
     } catch (e) {
       qc.setQueryData(data.queryKey, key);
@@ -373,6 +388,7 @@ function ArtworksAdmin() {
           onClose={() => setEdit(null)}
           onSaved={async () => {
             setEdit(null);
+            setError(await rebuildNotice());
             await qc.invalidateQueries();
           }}
         />
@@ -591,30 +607,46 @@ function RequestsAdmin() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const qc = useQueryClient();
-  async function process(r: Request) {
-    setBusy(r.id);
+  const works = useAdminWorks(true);
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState("");
+  async function process(r: Request, status: keyof typeof requestStatuses) {
+    setBusy(r.id); setError("");
+    try { await client.management.processRequest({ id: r.id, status }); await qc.invalidateQueries(); }
+    catch (e) { setError(errorText(e)); } finally { setBusy(""); }
+  }
+  async function create(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setBusy("create"); setError(""); setNotice("");
+    const d = formObject(e.currentTarget);
     try {
-      await client.management.processRequest({
-        id: r.id,
-        status: r.status === "new" ? "processed" : "new",
-      });
-      await qc.invalidateQueries();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy("");
-    }
+      await client.management.createRequest({ clientName: String(d.clientName), clientContact: String(d.clientContact), artworkId: String(d.artworkId), status: String(d.status) as keyof typeof requestStatuses });
+      setAdding(false); setNotice("Заявка добавлена"); await qc.invalidateQueries();
+    } catch (e) { setError(errorText(e)); } finally { setBusy(""); }
   }
   return (
     <>
       <div className="admin-page-heading">
         <h1>Заявки</h1>
+        <button className="button" onClick={() => { setAdding(!adding); setError(""); }}><Plus size={16} />Добавить заявку вручную</button>
       </div>
+      {notice && <output>{notice}</output>}
+      {adding && <form className="admin-editor editor-fields" onSubmit={create}>
+        <h2>Добавить заявку вручную</h2>
+        <label>Имя клиента<input name="clientName" aria-label="Имя клиента" required maxLength={150} /></label>
+        <label>Контакт<input name="clientContact" aria-label="Контакт" required maxLength={200} /></label>
+        <label>Название картины<select name="artworkId" aria-label="Название картины" required defaultValue="" disabled={works.isLoading || !!works.error}>
+          <option value="" disabled>Выберите картину</option>
+          {works.data?.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+        </select></label>
+        {works.error && <ErrorMessage message="Не удалось загрузить список картин" />}
+        {!works.isLoading && !works.data?.length && <p className="muted">Сначала добавьте картину в каталог.</p>}
+        <label>Статус<select name="status" aria-label="Статус заявки" defaultValue="new">{Object.entries(requestStatuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <div className="form-actions"><button className="button filled" disabled={busy === "create" || !works.data?.length}>{busy === "create" ? "Сохранение…" : "Добавить заявку"}</button><button type="button" className="button" onClick={() => setAdding(false)}>Отмена</button></div>
+      </form>}
       <div className="tabs">
         {[
           ["", "Все заявки"],
-          ["new", "Новые"],
-          ["processed", "Обработанные"],
+          ...Object.entries(requestStatuses),
         ].map(([key, title]) => (
           <button
             key={key}
@@ -633,13 +665,13 @@ function RequestsAdmin() {
       ) : (
         <div className="requests-list">
           {data.data
-            ?.filter((r) => !filter || r.status === filter)
+            ?.filter((r) => !filter || normalizedRequestStatus(r.status) === filter)
             .map((r) => (
               <article className="request-card" key={r.id}>
                 <div>
                   <span className="eyebrow">
                     {new Date(r.createdAt).toLocaleDateString("ru-RU")} ·{" "}
-                    {r.status === "new" ? "Новая" : "Обработана"}
+                    {requestStatuses[normalizedRequestStatus(r.status)]}
                   </span>
                   <h3>{r.clientName}</h3>
                   <a className="text-link" href={contactHref(r.clientContact)}>
@@ -649,12 +681,12 @@ function RequestsAdmin() {
                   {r.artworkTitle && <p>{r.artworkTitle}</p>}
                   <p className="muted">{r.message}</p>
                 </div>
-                <button className="button" disabled={busy === r.id} onClick={() => void process(r)}>
-                  {r.status === "new" ? "Обработана" : "Вернуть в новые"}
-                </button>
+                <label>Статус<select aria-label={`Статус заявки ${r.clientName}`} disabled={busy === r.id} value={normalizedRequestStatus(r.status)} onChange={e => void process(r, e.target.value as keyof typeof requestStatuses)}>
+                  {Object.entries(requestStatuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select></label>
               </article>
             ))}
-          {!data.data?.filter((r) => !filter || r.status === filter).length && (
+          {!data.data?.filter((r) => !filter || normalizedRequestStatus(r.status) === filter).length && (
             <p className="empty-state">Заявок пока нет</p>
           )}
         </div>
@@ -691,6 +723,7 @@ function ContentAdmin({ type }: { type: keyof typeof contentTypes }) {
     setBusy(id);
     try {
       await client.management.deleteContent({ id });
+      setError(await rebuildNotice());
       await qc.invalidateQueries();
     } catch (e) {
       setError(errorText(e));
@@ -715,6 +748,7 @@ function ContentAdmin({ type }: { type: keyof typeof contentTypes }) {
           onClose={() => setEdit(null)}
           onSaved={async () => {
             setEdit(null);
+            setError(await rebuildNotice());
             await qc.invalidateQueries();
           }}
         />
@@ -849,7 +883,7 @@ function ContentEditor({
 }
 function SettingsAdmin() {
   const data = useAdminSettings(true);
-  const rooms = useRooms();
+  const rooms = useAdminRooms();
   const qc = useQueryClient();
   const [roomUrl, setRoomUrl] = useState("");
   const [state, setState] = useState("");
@@ -861,7 +895,7 @@ function SettingsAdmin() {
     try {
       await client.management.saveSettings({ email: String(d.email), city: String(d.city) });
       await qc.invalidateQueries();
-      setState("Настройки сохранены");
+      setState(await rebuildNotice());
     } catch (err) {
       setState(errorText(err));
     } finally {
@@ -907,13 +941,7 @@ function SettingsAdmin() {
           <button className="button" disabled={pending}>
             Сохранить
           </button>
-          <p className="muted small">
-            Telegram-уведомления:{" "}
-            {data.data.telegramConfigured
-              ? "подключены"
-              : "не подключены — задайте TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID в окружении сервера"}
-          </p>
-          <PdfButton />
+          <AdminPdfButton />
         </form>
         <form className="admin-card editor-fields" onSubmit={password}>
           <h3>Смена пароля</h3>
@@ -956,6 +984,7 @@ function SettingsAdmin() {
             setPending(true);
             try {
               await client.management.saveRoom({ imageUrl: roomUrl });
+              setState(await rebuildNotice());
               setRoomUrl("");
               await qc.invalidateQueries();
             } catch (err) {
@@ -977,6 +1006,7 @@ function SettingsAdmin() {
                   if (window.confirm("Удалить фон интерьера?")) {
                     try {
                       await client.management.deleteRoom({ id: r.id });
+                      setState(await rebuildNotice());
                       await qc.invalidateQueries();
                     } catch (err) {
                       setState(errorText(err));
