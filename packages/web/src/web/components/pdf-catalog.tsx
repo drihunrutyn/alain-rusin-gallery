@@ -4,7 +4,7 @@ import { usePublicData } from "../public-data";
 import type { PublicSnapshot } from "../../shared/public-data";
 import { ErrorMessage } from "./gallery-ui";
 
-export function PdfButton({ loadData }: { loadData?: () => Promise<Pick<PublicSnapshot, "artworks" | "profile">> }) {
+export function PdfButton({ loadData }: { loadData?: () => Promise<Pick<PublicSnapshot, "artworks" | "profile" | "series">> }) {
   const data = usePublicData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -21,6 +21,7 @@ export function PdfButton({ loadData }: { loadData?: () => Promise<Pick<PublicSn
       const blob = await createCatalog(
         works.filter((a) => a.status === "available"),
         profile,
+        catalog.series,
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

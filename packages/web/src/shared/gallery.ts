@@ -1,35 +1,5 @@
 import { z } from "zod";
 
-export const series = [
-  {
-    id: "aquatica",
-    title: "Акватика",
-    description: "Морские этюды сухой пастелью: физика света на гребне волны.",
-    image: "/images/seeds/aquatika.jpg",
-    number: "01",
-  },
-  {
-    id: "quiet_life",
-    title: "Тихая жизнь",
-    description: "Не мёртвая натура, а живой собеседник: тишина предметов, наполненная светом.",
-    image: "/images/seeds/quiet-life.jpg",
-    number: "02",
-  },
-  {
-    id: "iris_flowers",
-    title: "Цветы Ириды",
-    description: "Не изображение цветка, а его внутреннее сияние.",
-    image: "/images/seeds/iris-flowers.jpg",
-    number: "03",
-  },
-  {
-    id: "northern_palmyra",
-    title: "Северная Пальмира",
-    description: "Ведуты Петербурга взглядом средового дизайнера.",
-    image: "/images/seeds/northern-palmyra.jpg",
-    number: "04",
-  },
-] as const;
 export const statuses = {
   available: "В наличии",
   reserved: "Зарезервирована",
@@ -56,7 +26,7 @@ export const contacts = [
 export const artworkInput = z.object({
   id: z.string().uuid().optional(),
   title: z.string().trim().min(1).max(300),
-  series: z.enum(["aquatica", "quiet_life", "iris_flowers", "northern_palmyra"]),
+  series: z.string().min(1).max(100).regex(/^[a-z0-9]+(?:[_-][a-z0-9]+)*$/),
   technique: z.string().max(500).default(""),
   year: z.number().int().min(1900).max(2100).default(2025),
   dimensions: z.string().max(100).default(""),

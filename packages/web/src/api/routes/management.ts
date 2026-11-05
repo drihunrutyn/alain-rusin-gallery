@@ -8,50 +8,44 @@ import * as t from "../database/schema";
 import { admin, settings, setSetting, validPassword } from "../lib/security";
 import { artworkInput, contentInput } from "../../shared/gallery";
 import { manualRequestInput, requestStatus } from "../../shared/requests";
-import { requestRebuild } from "../lib/rebuild";
+import { series as seriesManagement } from "./series";
+import { resolveEmbed } from "../../shared/embed";
 
 const itemId = z.object({ id: z.string().uuid() });
-function safeUrl(value: string, embed = false) {
+function safeUrl(value: string) {
   if (!value) return "";
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:") throw new Error();
-    if (
-      embed &&
-      !["vk.com", "www.youtube.com", "www.youtube-nocookie.com", "player.vimeo.com"].includes(
-        url.hostname,
-      )
-    )
-      throw new Error();
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error();
     return url.toString();
   } catch {
     throw new ORPCError("BAD_REQUEST", { message: "Нужна безопасная HTTPS-ссылка" });
   }
 }
-function videoEmbed(value: string) {
-  const match = value.match(/video(-?\d+)_(\d+)/);
-  return match
-    ? `https://vk.com/video_ext.php?oid=${match[1]}&id=${match[2]}`
-    : safeUrl(value, true);
-}
 export const management = {
-  rebuild: admin.handler(() => requestRebuild()),
+  ...seriesManagement,
   rooms: admin.handler(() => db.select().from(t.rooms)),
   profile: admin.handler(async () => { const s = await settings(); return { email: s.email || "telnov.aleosch@yandex.ru", city: s.city || "Санкт-Петербург" }; }),
   artworks: admin.handler(async () => {
     const rows = await db.select().from(t.artworks).orderBy(desc(t.artworks.createdAt));
     return rows.map(a => ({ ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }));
   }),
-  saveArtwork: admin.input(artworkInput).handler(async ({ input }) => {
+  saveArtwork: admin.input(artworkInput).handler(async ({ input }) => db.transaction(async tx => {
     const { id, ...data } = input;
+    const [s] = await tx.select().from(t.series).where(eq(t.series.slug, data.series));
+    if (!s) throw new ORPCError("BAD_REQUEST", { message: "Выберите существующую серию" });
+    if (s.archived) {
+      const [old] = id ? await tx.select().from(t.artworks).where(eq(t.artworks.id, id)) : [];
+      if (!old || old.series !== s.slug) throw new ORPCError("BAD_REQUEST", { message: "Нельзя добавлять работы в архивную серию" });
+    }
     if (id) {
-      const [row] = await db.update(t.artworks).set(data).where(eq(t.artworks.id, id)).returning();
+      const [row] = await tx.update(t.artworks).set(data).where(eq(t.artworks.id, id)).returning();
       if (!row) throw new ORPCError("NOT_FOUND");
       return row;
     }
-    const [row] = await db.insert(t.artworks).values(data).returning();
+    const [row] = await tx.insert(t.artworks).values(data).returning();
     return row!;
-  }),
+  })),
   deleteArtwork: admin.input(itemId).handler(async ({ input }) => {
     await db.delete(t.artworks).where(eq(t.artworks.id, input.id));
     return { success: true };
@@ -60,8 +54,9 @@ export const management = {
   saveContent: admin.input(contentInput).handler(async ({ input }) => {
     const { id, ...data } = input;
     data.link = safeUrl(data.link);
-    data.embedUrl = videoEmbed(data.embedUrl);
-    data.imageUrl = data.imageUrl ? safeUrl(data.imageUrl) : "";
+    if (data.embedUrl && !resolveEmbed(data.embedUrl).src) throw new ORPCError("BAD_REQUEST", { message: "Нужна корректная HTTP(S)-ссылка на видео" });
+    // Store the original URL, not the provider's player URL.
+    data.imageUrl = data.imageUrl.startsWith("/images/") && !data.imageUrl.split("/").includes("..") ? data.imageUrl : safeUrl(data.imageUrl);
     if (id) {
       const [row] = await db.update(t.content).set(data).where(eq(t.content.id, id)).returning();
       return row!;

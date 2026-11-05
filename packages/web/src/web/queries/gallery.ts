@@ -7,6 +7,9 @@ export function useAdminWorks(enabled: boolean) {
   const options = orpc.management.artworks.queryOptions({ enabled });
   return { ...useQuery(options), queryKey: options.queryKey };
 }
+export function useAdminSeries(enabled = true) {
+  return useQuery(orpc.management.series.queryOptions({ enabled }));
+}
 export function useAdminContent(enabled: boolean) {
   return useQuery(orpc.management.content.queryOptions({ enabled }));
 }

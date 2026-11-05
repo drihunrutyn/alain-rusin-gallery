@@ -20,6 +20,7 @@ import { client } from "../lib/api";
 import {
   useMe,
   useAdminWorks,
+  useAdminSeries,
   useAdminContent,
   useAdminRequests,
   useAdminStats,
@@ -28,7 +29,6 @@ import {
   useSubscribers,
 } from "../queries/gallery";
 import {
-  series,
   statuses,
   contentTypes,
   artworkInput,
@@ -37,19 +37,18 @@ import {
 } from "../../shared/gallery";
 import { Loading, ErrorMessage, type Artwork } from "../components/gallery-ui";
 import { ImageUpload } from "../components/upload";
+import { EmbeddedMedia } from "../components/embedded-media";
+import { SeriesAdmin } from "./series-admin";
 import { PdfButton } from "../components/pdf-catalog";
 import { publicSiteUrl } from "../lib/site";
 import { requestStatuses, normalizedRequestStatus } from "../../shared/requests";
 function AdminPdfButton() {
   return <PdfButton loadData={async () => {
-    const [artworks, profile] = await Promise.all([client.management.artworks(), client.management.profile()]);
-    return { artworks, profile };
+    const [artworks, profile, series] = await Promise.all([client.management.artworks(), client.management.profile(), client.management.series()]);
+    return { artworks, profile, series };
   }} />;
 }
-async function rebuildNotice() {
-  try { const result = await client.management.rebuild(); return result.message; }
-  catch { return "Изменения сохранены, но пересборка не запущена. Запустите workflow вручную."; }
-}
+function savedNotice() { return "Изменения сохранены. Витрина обновляется в 10:00, 13:00, 16:00 и 19:00 по Москве. Срочное обновление: GitHub Actions → Deploy static storefront → Run workflow."; }
 
 
 type MediaItem = Awaited<ReturnType<typeof client.management.content>>[number];
@@ -134,6 +133,7 @@ export function Admin() {
   const nav = [
     ["/admin", "Дашборд", LayoutDashboard],
     ["/admin/artworks", "Работы", Image],
+    ["/admin/series", "Серии", Image],
     ["/admin/requests", "Заявки", Inbox],
     ...Object.entries(contentTypes).map(([type, title]) => [
       "/admin/content?type=" + type,
@@ -195,6 +195,8 @@ export function Admin() {
           <Dashboard />
         ) : section === "artworks" ? (
           <ArtworksAdmin />
+        ) : section === "series" ? (
+          <SeriesAdmin />
         ) : section === "requests" ? (
           <RequestsAdmin />
         ) : section === "content" ? (
@@ -337,6 +339,7 @@ function Dashboard() {
 }
 function ArtworksAdmin() {
   const data = useAdminWorks(true);
+  const series = useAdminSeries().data || [];
   const qc = useQueryClient();
   const [edit, setEdit] = useState<Artwork | "new" | null>(null);
   const [error, setError] = useState("");
@@ -346,7 +349,7 @@ function ArtworksAdmin() {
     setBusy(id);
     try {
       await client.management.deleteArtwork({ id });
-      setError(await rebuildNotice());
+      setError(savedNotice());
       await qc.invalidateQueries();
     } catch (e) {
       setError(errorText(e));
@@ -363,7 +366,7 @@ function ArtworksAdmin() {
     );
     try {
       await client.management.saveArtwork(artworkInput.parse({ ...a, isFeatured: !a.isFeatured }));
-      setError(await rebuildNotice());
+      setError(savedNotice());
       await qc.invalidateQueries();
     } catch (e) {
       qc.setQueryData(data.queryKey, key);
@@ -388,7 +391,7 @@ function ArtworksAdmin() {
           onClose={() => setEdit(null)}
           onSaved={async () => {
             setEdit(null);
-            setError(await rebuildNotice());
+            setError(savedNotice());
             await qc.invalidateQueries();
           }}
         />
@@ -423,7 +426,7 @@ function ArtworksAdmin() {
                       </span>
                     </div>
                   </td>
-                  <td>{series.find((s) => s.id === a.series)?.title}</td>
+                  <td>{series.find((s) => s.slug === a.series)?.title}</td>
                   <td>{money(a.price)}</td>
                   <td>{statuses[a.status as keyof typeof statuses]}</td>
                   <td>
@@ -468,6 +471,8 @@ function ArtworkEditor({
   onSaved: () => Promise<void>;
 }) {
   const [imageUrl, setImageUrl] = useState(artwork?.imageUrl ?? "");
+  const seriesQuery = useAdminSeries();
+  const series = (seriesQuery.data || []).filter(s => !s.archived || s.slug === artwork?.series);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -507,8 +512,8 @@ function ArtworkEditor({
               Серия
               <select aria-label="Серия" name="series" defaultValue={artwork?.series}>
                 {series.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
+                  <option key={s.slug} value={s.slug}>
+                    {s.title}{s.archived ? " (архив)" : ""}
                   </option>
                 ))}
               </select>
@@ -584,7 +589,7 @@ function ArtworkEditor({
       </div>
       {error && <ErrorMessage message={error} />}
       <div className="form-actions">
-        <button className="button filled" disabled={pending || !imageUrl}>
+        <button className="button filled" disabled={pending || !imageUrl || seriesQuery.isLoading || !series.length}>
           {pending ? "Сохранение…" : "Сохранить"}
         </button>
         <button type="button" className="button" onClick={onClose}>
@@ -723,7 +728,7 @@ function ContentAdmin({ type }: { type: keyof typeof contentTypes }) {
     setBusy(id);
     try {
       await client.management.deleteContent({ id });
-      setError(await rebuildNotice());
+      setError(savedNotice());
       await qc.invalidateQueries();
     } catch (e) {
       setError(errorText(e));
@@ -748,7 +753,7 @@ function ContentAdmin({ type }: { type: keyof typeof contentTypes }) {
           onClose={() => setEdit(null)}
           onSaved={async () => {
             setEdit(null);
-            setError(await rebuildNotice());
+            setError(savedNotice());
             await qc.invalidateQueries();
           }}
         />
@@ -798,6 +803,7 @@ function ContentEditor({
   onSaved: () => Promise<void>;
 }) {
   const [imageUrl, setImageUrl] = useState(item?.imageUrl || "");
+  const [videoUrl, setVideoUrl] = useState(item?.embedUrl || "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -845,12 +851,13 @@ function ContentEditor({
             <input aria-label="Ссылка" name="link" type="url" defaultValue={item?.link} />
           </label>
           <label>
-            Видео / embed URL
-            <input aria-label="Видео / embed URL" name="embedUrl" defaultValue={item?.embedUrl} />
+            Ссылка на видео
+            <input aria-label="Ссылка на видео" name="embedUrl" type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
             <small className="muted">
-              Для VK-видео вставьте обычную ссылку — она будет преобразована автоматически.
+              Вставьте исходную ссылку на любую платформу или видеофайл. В базе сохраняется исходный URL.
             </small>
           </label>
+          {videoUrl && <EmbeddedMedia url={videoUrl} title={item?.title || "Превью видео"} cover={imageUrl} />}
           <div className="two-cols">
             <label>
               Локация
@@ -895,7 +902,7 @@ function SettingsAdmin() {
     try {
       await client.management.saveSettings({ email: String(d.email), city: String(d.city) });
       await qc.invalidateQueries();
-      setState(await rebuildNotice());
+      setState(savedNotice());
     } catch (err) {
       setState(errorText(err));
     } finally {
@@ -984,7 +991,7 @@ function SettingsAdmin() {
             setPending(true);
             try {
               await client.management.saveRoom({ imageUrl: roomUrl });
-              setState(await rebuildNotice());
+              setState(savedNotice());
               setRoomUrl("");
               await qc.invalidateQueries();
             } catch (err) {
@@ -1006,7 +1013,7 @@ function SettingsAdmin() {
                   if (window.confirm("Удалить фон интерьера?")) {
                     try {
                       await client.management.deleteRoom({ id: r.id });
-                      setState(await rebuildNotice());
+                      setState(savedNotice());
                       await qc.invalidateQueries();
                     } catch (err) {
                       setState(errorText(err));

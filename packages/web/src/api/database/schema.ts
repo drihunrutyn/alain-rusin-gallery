@@ -1,4 +1,16 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+
+export const series = sqliteTable("series", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description"),
+  coverUrl: text("cover_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at").notNull().default(sql`(unixepoch())`),
+});
 
 const id = () =>
   text("id")

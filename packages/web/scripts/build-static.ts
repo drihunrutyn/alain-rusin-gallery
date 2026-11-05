@@ -2,8 +2,7 @@ import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "vite";
-import { inArray, desc } from "drizzle-orm";
-import { artworkInput, contentInput } from "../src/shared/gallery";
+import { readPublicSnapshot, snapshotHash } from "./public-snapshot";
 import { routeMetadata } from "../src/shared/metadata";
 import type { PublicSnapshot } from "../src/shared/public-data";
 
@@ -20,32 +19,15 @@ if (new URL(site).protocol !== "https:") throw new Error("PUBLIC_SITE_URL must u
 process.env.PAGES_BASE_PATH = base;
 process.env.PUBLIC_SITE_URL = site;
 
-// This module is imported only by the build process, never by browser code.
-const { db } = await import("../src/api/database");
-const t = await import("../src/api/database/schema");
-const [artworks, content, rooms, profileRows] = await Promise.all([
-  db.select().from(t.artworks).orderBy(desc(t.artworks.createdAt)),
-  db.select().from(t.content).orderBy(desc(t.content.createdAt)),
-  db.select().from(t.rooms),
-  // Fetch only the public keys. Session versions and password hashes are never selected.
-  db.select({ key: t.adminSettings.key, value: t.adminSettings.value }).from(t.adminSettings).where(inArray(t.adminSettings.key, ["email", "city"])),
-]);
-function publicImage(value: string) {
-  if (!value) return;
-  if (value.startsWith("/images/") && !value.split("/").includes("..")) return;
-  if (value.startsWith("https://") && !new URL(value).pathname.startsWith("/api/")) return;
-  throw new Error("Image must be a direct HTTPS storage URL or /images/ asset (no API proxy)");
-}
-const profile = Object.fromEntries(profileRows.map(r => [r.key, r.value]));
-const snapshot: PublicSnapshot = {
-  artworks: artworks.map(a => { publicImage(a.imageUrl); return { ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }; }),
-  content: content.map(c => { publicImage(c.imageUrl); return { ...contentInput.parse(c), id: c.id, createdAt: c.createdAt }; }),
-  rooms: rooms.map(r => { publicImage(r.imageUrl); return { id: r.id, imageUrl: r.imageUrl, createdAt: r.createdAt }; }),
-  profile: { email: profile.email || "telnov.aleosch@yandex.ru", city: profile.city || "Санкт-Петербург" },
-  builtAt: new Date().toISOString(),
-};
+// Reads only public tables/keys. A workflow builds exactly the snapshot whose hash it checked.
+const snapshot: PublicSnapshot = process.argv.includes("--from-snapshot") ? JSON.parse(await readFile(path.join(staging, "snapshot.json"), "utf8")) : await readPublicSnapshot();
 await mkdir(staging, { recursive: true });
 await writeFile(path.join(staging, "snapshot.json"), JSON.stringify(snapshot).replace(/</g, "\\u003c"));
+await writeFile(path.join(staging, "snapshot.sha256"), snapshotHash(snapshot));
+if (process.argv.includes("--snapshot-only")) {
+  console.log(`Validated public snapshot: ${snapshot.artworks.length} works, ${snapshot.series.length} series.`);
+  process.exit(0);
+}
 // Do not destroy the previous successful out until the database snapshot validates.
 await rm(out, { recursive: true, force: true });
 await build({ root: web, configFile: path.join(web, "vite.config.ts"), mode: "static", build: { outDir: out, emptyOutDir: true } });
