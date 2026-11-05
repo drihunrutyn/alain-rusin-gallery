@@ -3,6 +3,10 @@ import { orpc } from "../lib/api";
 export function useArtworks() {
   return useQuery(orpc.gallery.artworks.queryOptions({ staleTime: 15000 }));
 }
+export function useSeries() {
+  const query = useQuery(orpc.gallery.series.queryOptions());
+  return { ...query, data: query.data || [] };
+}
 export function useArtwork(id: string) {
   return useQuery(orpc.gallery.artwork.queryOptions({ input: { id }, retry: false }));
 }
@@ -19,7 +23,11 @@ export function useMe() {
   return useQuery(orpc.gallery.me.queryOptions({ retry: false, staleTime: 10000 }));
 }
 export function useAdminWorks(enabled: boolean) {
-  return useQuery(orpc.management.artworks.queryOptions({ enabled }));
+  const options = orpc.management.artworks.queryOptions({ enabled });
+  return { ...useQuery(options), queryKey: options.queryKey };
+}
+export function useAdminSeries(enabled = true) {
+  return useQuery(orpc.management.series.queryOptions({ enabled }));
 }
 export function useAdminContent(enabled: boolean) {
   return useQuery(orpc.management.content.queryOptions({ enabled }));

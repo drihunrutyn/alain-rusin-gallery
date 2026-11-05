@@ -1,0 +1,102 @@
+name: Deploy static storefront
+
+on:
+  push: { branches: [main] }
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 7,10,13,16 * * *" # 10:00, 13:00, 16:00, 19:00 Moscow
+
+permissions: { contents: read, pages: write, id-token: write }
+
+concurrency:
+  group: storefront-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+      cache_key: ${{ steps.snapshot.outputs.cache_key }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+      APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+      PAGES_BASE_PATH: /alain-rusin-gallery/
+      PUBLIC_SITE_URL: https://drihunrutyn.github.io/alain-rusin-gallery
+      ADMIN_SITE_URL: https://alain-rusin.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: github-pages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - run: bun install --frozen-lockfile
+      - run: bun run test:static
+      - name: Read public snapshot and compute SHA256
+        id: snapshot
+        run: |
+          test -n "$DATABASE_URL" || { echo 'Missing DATABASE_URL secret'; exit 1; }
+          test -n "$DATABASE_AUTH_TOKEN" || { echo 'Missing DATABASE_AUTH_TOKEN secret'; exit 1; }
+          bun run packages/web/scripts/build-static.ts --snapshot-only
+          hash=$(cat .build/snapshot.sha256)
+          source=$(git rev-parse HEAD^{tree})
+          echo "cache_key=data-snapshot-${hash}-${source}" >> "$GITHUB_OUTPUT"
+      # Split restore/save from actions/cache@v4: a failed deployment must not mark data as published.
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: .build/deployed-snapshot
+          key: storefront-published-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: storefront-published-
+      - name: Compare with last successful deployment
+        id: compare
+        env:
+          SNAPSHOT_KEY: ${{ steps.snapshot.outputs.cache_key }}
+        run: |
+          previous=$(cat .build/deployed-snapshot/key 2>/dev/null || true)
+          if [ "$previous" = "$SNAPSHOT_KEY" ]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'cache-hit=true; last published snapshot is unchanged'
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/configure-pages@v5
+        if: steps.compare.outputs.changed == 'true'
+      - name: Build validated catalog
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          bun run packages/web/scripts/build-static.ts --from-snapshot
+          test -f out/index.html
+          test -f out/privacy/index.html
+          test ! -d out/admin
+          test ! -d out/api
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.compare.outputs.changed == 'true'
+        with:
+          path: out
+      - name: No public data or source changes
+        if: steps.compare.outputs.changed == 'false'
+        run: echo 'cache-hit=true; build and deployment skipped'
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish storefront
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Mark snapshot as successfully published
+        run: mkdir -p .build/deployed-snapshot && printf '%s\n' '${{ needs.build.outputs.cache_key }}' > .build/deployed-snapshot/key
+      - uses: actions/cache/save@v4
+        with:
+          path: .build/deployed-snapshot
+          key: storefront-published-${{ github.run_id }}-${{ github.run_attempt }}

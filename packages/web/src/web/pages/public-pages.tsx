@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { ArrowUpRight, SlidersHorizontal, X } from "lucide-react";
-import { aboutText, series, statuses, contentTypes, money } from "../../shared/gallery";
-import { useArtworks, useArtwork, useMedia } from "../queries/gallery";
+import { aboutText, statuses, contentTypes, money } from "../../shared/gallery";
+import { privacyText } from "../../shared/privacy";
+import { useArtworks, useArtwork, useMedia, useSeries } from "../queries/gallery";
+import { EmbeddedMedia } from "../components/embedded-media";
 import {
   ArtworkCard,
   ArchiveBanner,
@@ -16,6 +18,7 @@ import { PdfButton } from "../components/pdf-catalog";
 
 export function Gallery() {
   const works = useArtworks();
+  const series = useSeries().data;
   const [path] = useLocation();
   const [selected, setSelected] = useState(
     new URLSearchParams(window.location.search).get("series") || "",
@@ -58,10 +61,10 @@ export function Gallery() {
             {series.map((s) => (
               <button
                 role="tab"
-                aria-selected={selected === s.id}
-                key={s.id}
-                className={selected === s.id ? "active" : ""}
-                onClick={() => setSelected(s.id)}
+                aria-selected={selected === s.slug}
+                key={s.slug}
+                className={selected === s.slug ? "active" : ""}
+                onClick={() => setSelected(s.slug)}
               >
                 {s.title}
               </button>
@@ -145,12 +148,13 @@ export function Gallery() {
 export function ArtworkPage() {
   const { id = "" } = useParams<{ id: string }>();
   const work = useArtwork(id);
+  const series = useSeries().data;
   const [modal, setModal] = useState("");
   const [room, setRoom] = useState(false);
   if (work.isLoading) return <Loading />;
   if (work.error || !work.data) return <NotFound />;
   const a = work.data;
-  const s = series.find((s) => s.id === a.series);
+  const s = series.find((s) => s.slug === a.series);
   return (
     <>
       <section className="container artwork-detail">
@@ -272,18 +276,7 @@ export function Media() {
               ?.filter((c) => c.type === tab)
               .map((c) => (
                 <article key={c.id} className="media-card">
-                  {c.imageUrl && <img src={c.imageUrl} alt={c.title} loading="lazy" />}
-                  {c.embedUrl && (
-                    <iframe
-                      src={c.embedUrl}
-                      title={c.title}
-                      loading="lazy"
-                      allow="fullscreen; encrypted-media"
-                      allowFullScreen
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      sandbox="allow-scripts allow-same-origin allow-presentation"
-                    />
-                  )}
+                  {c.embedUrl ? <EmbeddedMedia url={c.embedUrl} title={c.title} cover={c.imageUrl} /> : c.imageUrl ? <img src={c.imageUrl} alt={c.title} loading="lazy" /> : null}
                   <div>
                     <span className="eyebrow">
                       {contentTypes[tab]}
@@ -375,20 +368,13 @@ export function B2B() {
   );
 }
 export function Privacy() {
+  const [title, ...lines] = privacyText.split("\n");
   return (
     <section className="container page-head privacy">
-      <span className="eyebrow">Персональные данные</span>
-      <h1>
-        Согласие на обработку
-        <br />
-        <em>персональных данных</em>
-      </h1>
-      <p className="prose">Согласен на обработку персональных данных</p>
-      <p className="muted">Telegram @alain_rusin · WhatsApp +7 924 713-17-04</p>
-      <p className="form-error">
-        Полный текст политики обработки персональных данных должен быть предоставлен владельцем
-        сайта до начала приёма заявок.
-      </p>
+      <h1>{title}</h1>
+      <div className="privacy-text">
+        {lines.filter(Boolean).map((line, i) => /^\d+\. /.test(line) ? <h2 key={i}>{line}</h2> : <p key={i}>{line}</p>)}
+      </div>
     </section>
   );
 }

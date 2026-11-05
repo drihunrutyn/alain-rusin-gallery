@@ -10,14 +10,16 @@ export function PdfButton() {
     setPending(true);
     setError("");
     try {
-      const [works, profile, { createCatalog }] = await Promise.all([
+      const [works, profile, series, { createCatalog }] = await Promise.all([
         client.gallery.artworks(),
         client.gallery.profile(),
+        client.gallery.series(),
         import("./catalog-document"),
       ]);
       const blob = await createCatalog(
         works.filter((a) => a.status === "available"),
         profile,
+        series,
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

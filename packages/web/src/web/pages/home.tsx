@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { series, aboutText } from "../../shared/gallery";
-import { useArtworks } from "../queries/gallery";
+import { aboutText } from "../../shared/gallery";
+import { useArtworks, useSeries } from "../queries/gallery";
 import {
   ArtworkCard,
   AwardLine,
@@ -12,6 +12,7 @@ import {
 
 export default function Home() {
   const works = useArtworks();
+  const series = useSeries().data;
   return (
     <>
       <section className="hero container">
@@ -70,11 +71,11 @@ export default function Home() {
           </Link>
         </div>
         <div className="series-grid">
-          {series.map((s) => (
-            <Link to={`/gallery?series=${s.id}`} key={s.id} className="series-card">
-              <div className={`series-image ${s.id}`}>
-                <img src={s.image} alt={s.title} loading="lazy" />
-                <span className="series-number">{s.number}</span>
+          {series.map((s, i) => (
+            <Link to={`/gallery?series=${s.slug}`} key={s.slug} className="series-card">
+              <div className={`series-image ${s.slug}`}>
+                {(s.coverUrl || works.data?.find(a => a.series === s.slug)?.imageUrl) && <img src={s.coverUrl || works.data?.find(a => a.series === s.slug)?.imageUrl || ""} alt={s.title} loading="lazy" />}
+                <span className="series-number">{String(i + 1).padStart(2, "0")}</span>
               </div>
               <div className="series-title">
                 <h3>{s.title}</h3>

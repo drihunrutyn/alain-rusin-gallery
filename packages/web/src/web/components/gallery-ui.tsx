@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { ArrowUpRight, ArrowRight, Menu, X, Check, LoaderCircle } from "lucide-react";
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from "react";
-import { series, statuses, contacts, money, award } from "../../shared/gallery";
+import { statuses, contacts, money, award } from "../../shared/gallery";
+import { useSeries } from "../queries/gallery";
 import { client } from "../lib/api";
 
 export type Artwork = Awaited<ReturnType<typeof client.gallery.artworks>>[number];
@@ -174,6 +175,7 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 export function ArtworkCard({ item }: { item: Artwork }) {
+  const series = useSeries().data;
   return (
     <Link to={`/artwork/${item.id}`} className="artwork-card">
       <div className="artwork-image">
@@ -187,7 +189,7 @@ export function ArtworkCard({ item }: { item: Artwork }) {
       </div>
       <div className="artwork-meta">
         <span className="eyebrow">
-          {series.find((s) => s.id === item.series)?.title} · {item.year}
+          {series.find((s) => s.slug === item.series)?.title} · {item.year}
         </span>
         <h3>{item.title}</h3>
         <div className="artwork-bottom">
@@ -316,14 +318,14 @@ export function RequestForm({
           />
           <label className="consent">
             <input
-              aria-label="Согласен на обработку персональных данных"
+              aria-label="Согласен(на) на обработку персональных данных в целях ответа на мою заявку"
               type="checkbox"
               required
               checked={consent}
               onChange={(e) => setConsent(e.target.checked)}
             />
             <span>
-              Согласен на обработку <Link to="/privacy">персональных данных</Link>
+              Согласен(на) на обработку персональных данных в целях ответа на мою заявку. <Link to="/privacy">Политика обработки персональных данных</Link>
             </span>
           </label>
           {state && state !== "pending" && <ErrorMessage message={state} />}

@@ -2318,3 +2318,9 @@ td {
 }
 
 .request-dialog{border:1px solid var(--border);background:var(--surface);padding:0;color:var(--foreground);max-width:550px;width:calc(100% - 30px);max-height:90vh;overflow:auto}.request-dialog::backdrop{background:#000C;backdrop-filter:blur(8px)}.room-artwork img{width:100%;height:auto;pointer-events:none}
+.privacy-text { max-width: 900px; font-family: "Manrope", sans-serif; line-height: 1.8; }
+.privacy-text h2 { font-family: "Cormorant Garamond", serif; font-size: clamp(26px, 3vw, 38px); color: #B8996F; margin-top: 34px; margin-bottom: 14px; }
+.privacy-text p { margin: 0 0 16px; overflow-wrap: anywhere; }
+.embedded-media { min-width: 0; }
+.embedded-media > img { width: 100%; object-fit: cover; max-height: 350px; margin-bottom: 16px; }
+.embedded-media > iframe, .embedded-media > video { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; }

@@ -1,19 +1,23 @@
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { base } from "../__core/app";
 import { db } from "../database";
 import * as tables from "../database/schema";
 import { session, settings, throttle } from "../lib/security";
+import { artworkInput } from "../../shared/gallery";
 
 export const gallery = {
-  artworks: base.handler(() =>
-    db.select().from(tables.artworks).orderBy(desc(tables.artworks.createdAt)),
-  ),
+  series: base.handler(async () => (await db.select().from(tables.series).where(eq(tables.series.archived, false)).orderBy(asc(tables.series.sortOrder), asc(tables.series.id))).map(s => ({ ...s, description: s.description || "", coverUrl: s.coverUrl || "" }))),
+  artworks: base.handler(async () => {
+    const active = await db.select({ slug: tables.series.slug }).from(tables.series).where(eq(tables.series.archived, false));
+    const slugs = new Set(active.map(s => s.slug));
+    return (await db.select().from(tables.artworks).orderBy(desc(tables.artworks.createdAt))).filter(a => slugs.has(a.series)).map(a => ({ ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }));
+  }),
   artwork: base.input(z.object({ id: z.string().uuid() })).handler(async ({ input }) => {
     const [item] = await db.select().from(tables.artworks).where(eq(tables.artworks.id, input.id));
     if (!item) throw new ORPCError("NOT_FOUND", { message: "Работа не найдена" });
-    return item;
+    return { ...artworkInput.parse(item), id: item.id, createdAt: item.createdAt };
   }),
   content: base.handler(() =>
     db.select().from(tables.content).orderBy(desc(tables.content.createdAt)),

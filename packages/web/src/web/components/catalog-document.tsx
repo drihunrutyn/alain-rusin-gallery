@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet, Font, pdf } from "@react-pdf/renderer";
 import QRCode from "qrcode";
-import { series, contacts, award, money } from "../../shared/gallery";
+import { contacts, award, money } from "../../shared/gallery";
+import { catalogOrder, visibleSeries, type SeriesData } from "../../shared/series";
 import type { Artwork } from "./gallery-ui";
 
 const origin = () => window.location.origin;
@@ -42,13 +43,14 @@ const style = StyleSheet.create({
     justifyContent: "space-between",
   },
 });
-export async function createCatalog(works: Artwork[], profile: { email: string; city: string }) {
+export async function createCatalog(works: Artwork[], profile: { email: string; city: string }, rows: SeriesData[]) {
+  const series = visibleSeries(rows);
   const qr = await QRCode.toDataURL(origin(), {
     margin: 1,
     width: 250,
     color: { dark: "#2C2C2C", light: "#F7F5F0" },
   });
-  const ordered = series.flatMap((s) => works.filter((a) => a.series === s.id));
+  const ordered = catalogOrder(works, series);
   const doc = (
     <Document title="Каталог работ — Alain Rusin" author="Алексей Русин">
       <Page size="A4" style={style.page}>
@@ -61,7 +63,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
       </Page>
       {ordered.map((a, i) => (
         <Page key={a.id} size="A4" style={style.page}>
-          <Text style={style.series}>{series.find((s) => s.id === a.series)?.title}</Text>
+          <Text style={style.series}>{series.find((s) => s.slug === a.series)?.title}</Text>
           <Image
             src={a.imageUrl.startsWith("/") ? origin() + a.imageUrl : a.imageUrl}
             style={style.image}
