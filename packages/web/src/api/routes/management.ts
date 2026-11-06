@@ -10,7 +10,8 @@ import { series as seriesManagement } from "./series";
 import { resolveEmbed } from "../../shared/embed";
 import { automaticCover } from "../lib/repository-images";
 import { upload as repositoryUpload } from "./upload";
-import { isPublicImagePath } from "../../shared/images";
+import { imageInput } from "../../shared/images";
+import { storeRepositoryImage } from "../lib/remote-image-import";
 
 const itemId = z.object({ id: z.string().uuid() });
 function safeUrl(value: string) {
@@ -31,7 +32,9 @@ export const management = {
     const rows = await db.select().from(t.artworks).orderBy(desc(t.artworks.createdAt));
     return rows.map(a => ({ ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }));
   }),
-  saveArtwork: admin.input(artworkInput).handler(async ({ input }) => db.transaction(async tx => {
+  saveArtwork: admin.input(artworkInput).handler(async ({ input }) => {
+    input.imageUrl = await storeRepositoryImage(input.imageUrl, `artwork-${input.id || crypto.randomUUID()}`);
+    return db.transaction(async tx => {
     const { id, ...data } = input;
     const [s] = await tx.select().from(t.series).where(eq(t.series.slug, data.series));
     if (!s) throw new ORPCError("BAD_REQUEST", { message: "Выберите существующую серию" });
@@ -46,7 +49,8 @@ export const management = {
     }
     const [row] = await tx.insert(t.artworks).values(data).returning();
     return row!;
-  })),
+    });
+  }),
   deleteArtwork: admin.input(itemId).handler(async ({ input }) => {
     await db.delete(t.artworks).where(eq(t.artworks.id, input.id));
     return { success: true };
@@ -57,6 +61,8 @@ export const management = {
     const recordId = id || crypto.randomUUID();
     data.link = safeUrl(data.link);
     if (data.embedUrl && !resolveEmbed(data.embedUrl).src) throw new ORPCError("BAD_REQUEST", { message: "Нужна корректная HTTP(S)-ссылка на видео" });
+    data.imageUrl = await storeRepositoryImage(data.imageUrl, `content-${recordId}`);
+    data.coverUrl = await storeRepositoryImage(data.coverUrl, `cover-${recordId}`);
     // Store the original URL, not the provider's player URL.
     if (!data.coverUrl) {
       const videoUrl = data.embedUrl || data.link;
@@ -64,7 +70,8 @@ export const management = {
     }
     if (id) {
       const [row] = await db.update(t.content).set(data).where(eq(t.content.id, id)).returning();
-      return row!;
+      if (!row) throw new ORPCError("NOT_FOUND");
+      return row;
     }
     const [row] = await db.insert(t.content).values({ ...data, id: recordId }).returning();
     return row!;
@@ -160,10 +167,10 @@ export const management = {
       return { success: true };
     }),
   upload: repositoryUpload,
-  saveRoom: admin.input(z.object({ imageUrl: z.string().refine(isPublicImagePath) })).handler(async ({ input }) => {
+  saveRoom: admin.input(z.object({ imageUrl: imageInput.refine(Boolean) })).handler(async ({ input }) => {
     const [r] = await db
       .insert(t.rooms)
-      .values({ imageUrl: input.imageUrl })
+      .values({ imageUrl: await storeRepositoryImage(input.imageUrl, `room-${crypto.randomUUID()}`) })
       .returning();
     return r!;
   }),

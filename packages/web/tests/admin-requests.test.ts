@@ -111,7 +111,7 @@ test("content keeps original video URLs and only relative repository covers", as
   expect(c.embedUrl).toBe(url);
   expect(c.imageUrl).toBe("/images/seeds/aquatika.jpg");
   expect(c.coverUrl).toBe(c.imageUrl);
-  await expect(admin.management.saveContent({ type: "article", title: "External", imageUrl: "https://example.org/cover.jpg" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(admin.management.saveContent({ type: "article", title: "Private source", imageUrl: "https://127.0.0.1/cover.jpg" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   const drive = await admin.management.saveContent({ type: "interview", title: "Drive", embedUrl: "https://drive.google.com/file/d/test_drive_id/view", coverUrl: "/images/seeds/aquatika.jpg" });
   expect(drive.embedUrl).toBe("https://drive.google.com/file/d/test_drive_id/view");
   await expect(admin.management.saveContent({ type: "interview", title: "XSS", embedUrl: "javascript:alert(1)" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
