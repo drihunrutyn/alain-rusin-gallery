@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { UploadCloud } from "lucide-react";
-import { client } from "../lib/api";
 import { ErrorMessage } from "./gallery-ui";
-import { optimizeJpeg, blobBase64 } from "../lib/optimize-image";
+import { optimizeJpeg } from "../lib/optimize-image";
 import { isPublicImagePath, pagesImageUrl } from "../../shared/images";
 export function ImageUpload({
   value,
@@ -13,8 +12,8 @@ export function ImageUpload({
   onChange: (url: string) => void;
   type?: "artworks" | "content" | "rooms";
 }) {
-  const [preview, setPreview] = useState("");
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const [preview, setPreview] = useState<{ path: string; url: string } | null>(null);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function upload(file?: File) {
@@ -27,9 +26,11 @@ export function ImageUpload({
     setError("");
     try {
       const jpg = await optimizeJpeg(file);
-      const result = await client.management.upload({ jpegBase64: await blobBase64(jpg) });
-      setPreview(URL.createObjectURL(jpg));
-      onChange(result.publicUrl);
+      const response = await fetch("/api/admin/upload", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: jpg });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не удалось сохранить изображение");
+      setPreview({ path: result.path, url: URL.createObjectURL(jpg) });
+      onChange(result.path);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
     } finally {
@@ -46,7 +47,7 @@ export function ImageUpload({
           if (!pending) void upload(e.dataTransfer.files[0]);
         }}
       >
-        {(preview || isPublicImagePath(value)) ? <img src={preview || pagesImageUrl(value)} alt="Выбранное изображение" /> : <UploadCloud size={32} />}
+        {(preview?.path === value || isPublicImagePath(value)) ? <img src={preview?.path === value ? preview.url : pagesImageUrl(value)} alt="Выбранное изображение" /> : <UploadCloud size={32} />}
         <span>{pending ? "Загрузка…" : "Перетащите фото или выберите файл"}</span>
         <input
           aria-label="Загрузить изображение"
@@ -62,7 +63,7 @@ export function ImageUpload({
           aria-label="Ссылка на изображение"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="/images/uploads/….jpg"
+          placeholder="/images/….jpg или HTTPS-ссылка для импорта"
         />
       </label>
       <small className="muted">JPG до 900 КБ, до 2000 px. На витрине и в PDF — после ближайшей сборки.</small>

@@ -40,6 +40,7 @@ import { ImageUpload } from "../components/upload";
 import { EmbeddedMedia } from "../components/embedded-media";
 import { SeriesAdmin } from "./series-admin";
 import { PdfButton } from "../components/pdf-catalog";
+import { assetUrl } from "../lib/site";
 
 type MediaItem = Awaited<ReturnType<typeof client.management.content>>[number];
 type Request = Awaited<ReturnType<typeof client.management.requests>>[number];
@@ -272,11 +273,11 @@ function Dashboard() {
         <PdfButton />
       </div>
       <div className="stats-grid">
-        {[
+        {([
           ["Работ в наличии", s.available, Image],
           ["Новые заявки", s.newRequests, Inbox],
           ["Просмотры за 30 дней", s.views30, Eye],
-        ].map(([label, value, Icon]) => (
+        ] as const).map(([label, value, Icon]) => (
           <div className="stat-card" key={String(label)}>
             <div>
               <span>{String(label)}</span>
@@ -405,7 +406,7 @@ function ArtworksAdmin() {
                 <tr key={a.id}>
                   <td>
                     <div className="table-art">
-                      <img src={a.imageUrl} alt={a.title} />
+                      <img src={assetUrl(a.imageUrl)} alt={a.title} />
                       <span>
                         {a.title}
                         <small>
@@ -984,7 +985,7 @@ function SettingsAdmin() {
         <div className="rooms-admin">
           {rooms.data?.map((r) => (
             <div key={r.id}>
-              <img src={r.imageUrl} alt="Интерьер" />
+              <img src={assetUrl(r.imageUrl)} alt="Интерьер" />
               <button
                 className="small-button"
                 onClick={async () => {

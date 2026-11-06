@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isPublicImagePath } from "./images";
+import { imageInput } from "./images";
 
 export const statuses = {
   available: "В наличии",
@@ -35,7 +35,7 @@ export const artworkInput = z.object({
   price: z.number().min(0).max(100000000).default(0),
   status: z.enum(["available", "reserved", "sold", "private"]).default("available"),
   description: z.string().max(10000).default(""),
-  imageUrl: z.string().min(1).max(2000).refine(isPublicImagePath, "Нужен JPG по пути /images/…"),
+  imageUrl: imageInput.refine(Boolean, "Нужно изображение"),
   isFeatured: z.boolean().default(false),
 });
 export const contentInput = z.object({
@@ -45,8 +45,8 @@ export const contentInput = z.object({
   description: z.string().max(10000).default(""),
   link: z.string().max(2000).default(""),
   embedUrl: z.string().max(2000).default(""),
-  imageUrl: z.string().max(2000).default("").refine(v => !v || isPublicImagePath(v), "Нужен JPG по пути /images/…"),
-  coverUrl: z.string().max(2000).default("").refine(v => !v || isPublicImagePath(v), "Нужен JPG по пути /images/…"),
+  imageUrl: imageInput.default(""),
+  coverUrl: imageInput.default(""),
   location: z.string().max(300).default(""),
   eventDate: z.string().max(100).default(""),
 });

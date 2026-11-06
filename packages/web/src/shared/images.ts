@@ -1,3 +1,4 @@
+import { z } from "zod";
 export const MAX_JPEG_BYTES = 900 * 1024;
 export const MAX_IMAGE_EDGE = 2000;
 
@@ -11,3 +12,6 @@ export function pagesImageUrl(value: string, site = "https://drihunrutyn.github.
   if (!isPublicImagePath(value)) throw new Error("Изображение должно быть JPG по пути /images/…");
   return site.replace(/\/$/, "") + value;
 }
+
+// External sources are accepted only for server-side import, never for storage/rendering.
+export const imageInput = z.string().max(2000).refine(v => !v || isPublicImagePath(v) || v.startsWith("https://"), "Нужен JPG из репозитория или HTTPS-ссылка для импорта");

@@ -1,3 +1,4 @@
+import { storeRepositoryImage } from "../lib/remote-image-import";
 import { z } from "zod";
 import { asc, eq, sql } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
@@ -11,7 +12,9 @@ export const series = {
     const rows = await db.select({ id: t.series.id, slug: t.series.slug, title: t.series.title, description: t.series.description, coverUrl: t.series.coverUrl, sortOrder: t.series.sortOrder, archived: t.series.archived, createdAt: t.series.createdAt, artworkCount: sql<number>`count(${t.artworks.id})` }).from(t.series).leftJoin(t.artworks, eq(t.series.slug, t.artworks.series)).groupBy(t.series.id).orderBy(asc(t.series.sortOrder), asc(t.series.id));
     return rows.map(s => ({ ...s, description: s.description || "", coverUrl: s.coverUrl || "", artworkCount: Number(s.artworkCount) }));
   }),
-  saveSeries: admin.input(seriesInput).handler(async ({ input }) => db.transaction(async tx => {
+  saveSeries: admin.input(seriesInput).handler(async ({ input }) => {
+    input.coverUrl = await storeRepositoryImage(input.coverUrl, `series-${input.id || input.slug}`);
+    return db.transaction(async tx => {
     const { id, ...data } = input;
     const [existing] = await tx.select().from(t.series).where(eq(t.series.slug, data.slug));
     if (id) {
@@ -24,7 +27,8 @@ export const series = {
     if (existing) throw new ORPCError("CONFLICT", { message: "Серия с таким slug уже существует" });
     const [row] = await tx.insert(t.series).values(data).returning();
     return row!;
-  })),
+    });
+  }),
   deleteSeries: admin.input(z.object({ id: z.number().int().positive(), action: z.enum(["delete", "archive", "transfer"]).default("delete"), targetId: z.number().int().positive().optional() })).handler(async ({ input }) => db.transaction(async tx => {
     const [row] = await tx.select().from(t.series).where(eq(t.series.id, input.id));
     if (!row) throw new ORPCError("NOT_FOUND");
