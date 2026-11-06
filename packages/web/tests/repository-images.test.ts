@@ -28,7 +28,7 @@ test("Contents API commits bytes to main and returns only relative path", async 
   process.env.UPLOAD_GITHUB_TOKEN = "unit-test-token";
   const bytes = await jpeg();
   mock = spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    expect(String(url)).toContain("/contents/public/images/uploads/test-");
+    expect(String(url)).toContain("/contents/packages/web/public/images/uploads/test-");
     expect(init?.method).toBe("PUT");
     const body = JSON.parse(String(init?.body));
     expect(body.branch).toBe("main");

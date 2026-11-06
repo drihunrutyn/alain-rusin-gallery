@@ -146,7 +146,7 @@ test("authenticated HTTP upload and typed CMS upload share the JPG contract", as
   const old = process.env.UPLOAD_GITHUB_TOKEN;
   process.env.UPLOAD_GITHUB_TOKEN = "test-only";
   const mock = spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    expect(String(url)).toContain("/contents/public/images/uploads/");
+    expect(String(url)).toContain("/contents/packages/web/public/images/uploads/");
     const data = JSON.parse(String(init?.body));
     expect(data.branch).toBe("main");
     expect(Buffer.from(data.content, "base64")).toEqual(jpg);
