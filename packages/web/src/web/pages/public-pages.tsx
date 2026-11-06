@@ -276,7 +276,7 @@ export function Media() {
               ?.filter((c) => c.type === tab)
               .map((c) => (
                 <article key={c.id} className="media-card">
-                  {c.embedUrl ? <EmbeddedMedia url={c.embedUrl} title={c.title} cover={c.imageUrl} /> : c.imageUrl ? <img src={c.imageUrl} alt={c.title} loading="lazy" /> : null}
+                  {c.embedUrl ? <EmbeddedMedia url={c.embedUrl} title={c.title} cover={c.coverUrl} /> : c.coverUrl ? <img src={c.coverUrl} alt={c.title} loading="lazy" /> : <div className="media-cover-placeholder"><span>ALAIN RUSIN</span><p>{c.title}</p></div>}
                   <div>
                     <span className="eyebrow">
                       {contentTypes[tab]}

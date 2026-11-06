@@ -13,11 +13,6 @@ export const series = {
   }),
   saveSeries: admin.input(seriesInput).handler(async ({ input }) => db.transaction(async tx => {
     const { id, ...data } = input;
-    if (data.coverUrl) {
-      if (!data.coverUrl.startsWith("/images/")) {
-        try { const url = new URL(data.coverUrl); if (url.protocol !== "https:" || url.username || url.password) throw new Error(); } catch { throw new ORPCError("BAD_REQUEST", { message: "Нужна безопасная HTTPS-ссылка обложки" }); }
-      }
-    }
     const [existing] = await tx.select().from(t.series).where(eq(t.series.slug, data.slug));
     if (id) {
       const [row] = await tx.select().from(t.series).where(eq(t.series.id, id));

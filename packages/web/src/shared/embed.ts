@@ -25,8 +25,8 @@ export function resolveEmbed(value: string): EmbedResult {
     if (oid && vid && /^-?\d+$/.test(oid) && /^\d+$/.test(vid)) return { type: "iframe", src: `https://vk.com/video_ext.php?oid=${oid}&id=${vid}`, provider: "ВКонтакте" };
   }
   if (host === "drive.google.com") {
-    id = p.match(/^\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
-    if (id) return { type: "iframe", src: `https://drive.google.com/file/d/${id}/preview`, provider: "Google Drive", autoCover: `https://drive.google.com/thumbnail?id=${id}&sz=w1600` };
+    id = p.match(/^\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || u.searchParams.get("id") || undefined;
+    if (id && /^[a-zA-Z0-9_-]+$/.test(id)) return { type: "iframe", src: `https://drive.google.com/file/d/${id}/preview`, provider: "Google Drive", autoCover: `https://drive.google.com/thumbnail?id=${id}&sz=w1600` };
   }
   if (host === "rutube.ru") {
     id = p.match(/^\/(?:video|play\/embed)\/([a-zA-Z0-9_-]+)/)?.[1];

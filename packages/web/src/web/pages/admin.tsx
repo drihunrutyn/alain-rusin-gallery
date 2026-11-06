@@ -773,6 +773,7 @@ function ContentEditor({
   onSaved: () => Promise<void>;
 }) {
   const [imageUrl, setImageUrl] = useState(item?.imageUrl || "");
+  const [coverUrl, setCoverUrl] = useState(item?.coverUrl || "");
   const [videoUrl, setVideoUrl] = useState(item?.embedUrl || "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -781,7 +782,7 @@ function ContentEditor({
     const d = formObject(e.currentTarget);
     setPending(true);
     try {
-      await client.management.saveContent(contentInput.parse({ ...d, id: item?.id, imageUrl }));
+      await client.management.saveContent(contentInput.parse({ ...d, id: item?.id, imageUrl, coverUrl }));
       await onSaved();
     } catch (err) {
       setError(errorText(err));
@@ -827,7 +828,7 @@ function ContentEditor({
               Вставьте исходную ссылку на любую платформу или видеофайл. В базе сохраняется исходный URL.
             </small>
           </label>
-          {videoUrl && <EmbeddedMedia url={videoUrl} title={item?.title || "Превью видео"} cover={imageUrl} />}
+          {videoUrl && <EmbeddedMedia url={videoUrl} title={item?.title || "Превью видео"} cover={coverUrl} />}
           <div className="two-cols">
             <label>
               Локация
@@ -845,6 +846,8 @@ function ContentEditor({
           </div>
         </div>
         <ImageUpload type="content" value={imageUrl} onChange={setImageUrl} />
+        <p className="muted">Обложка видео / публикации</p>
+        <ImageUpload type="content" value={coverUrl} onChange={setCoverUrl} />
       </div>
       {error && <ErrorMessage message={error} />}
       <div className="form-actions">

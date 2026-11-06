@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "../database";
 import * as t from "../database/schema";
 import { admin, settings, setSetting, validPassword } from "../lib/security";
 import { artworkInput, contentInput } from "../../shared/gallery";
 import { series as seriesManagement } from "./series";
 import { resolveEmbed } from "../../shared/embed";
+import { automaticCover } from "../lib/repository-images";
+import { upload as repositoryUpload } from "./upload";
+import { isPublicImagePath } from "../../shared/images";
 
 const itemId = z.object({ id: z.string().uuid() });
 function safeUrl(value: string) {
@@ -47,15 +48,19 @@ export const management = {
   content: admin.handler(() => db.select().from(t.content).orderBy(desc(t.content.createdAt))),
   saveContent: admin.input(contentInput).handler(async ({ input }) => {
     const { id, ...data } = input;
+    const recordId = id || crypto.randomUUID();
     data.link = safeUrl(data.link);
     if (data.embedUrl && !resolveEmbed(data.embedUrl).src) throw new ORPCError("BAD_REQUEST", { message: "Нужна корректная HTTP(S)-ссылка на видео" });
     // Store the original URL, not the provider's player URL.
-    data.imageUrl = data.imageUrl.startsWith("/images/") && !data.imageUrl.split("/").includes("..") ? data.imageUrl : safeUrl(data.imageUrl);
+    if (!data.coverUrl) {
+      const videoUrl = data.embedUrl || data.link;
+      data.coverUrl = resolveEmbed(videoUrl).autoCover ? await automaticCover(recordId, videoUrl) : data.imageUrl;
+    }
     if (id) {
       const [row] = await db.update(t.content).set(data).where(eq(t.content.id, id)).returning();
       return row!;
     }
-    const [row] = await db.insert(t.content).values(data).returning();
+    const [row] = await db.insert(t.content).values({ ...data, id: recordId }).returning();
     return row!;
   }),
   deleteContent: admin.input(itemId).handler(async ({ input }) => {
@@ -141,44 +146,11 @@ export const management = {
       await setSetting("session_version", crypto.randomUUID());
       return { success: true };
     }),
-  upload: admin
-    .input(
-      z.object({
-        filename: z.string().max(200),
-        contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-        size: z.number().max(20000000),
-        type: z.enum(["artworks", "content", "rooms"]),
-      }),
-    )
-    .handler(async ({ input }) => {
-      const s3 = new S3Client({
-        region: "auto",
-        endpoint: process.env.S3_ENDPOINT,
-        credentials: {
-          accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-        },
-      });
-      const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[
-        input.contentType
-      ];
-      const key = `${input.type}/${crypto.randomUUID()}.${ext}`;
-      const url = await getSignedUrl(
-        s3,
-        new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET,
-          Key: key,
-          ContentType: input.contentType,
-          ACL: "public-read",
-        }),
-        { expiresIn: 600, signableHeaders: new Set(["x-amz-acl"]) },
-      );
-      return { url, key, publicUrl: `https://${process.env.S3_BUCKET}.t3.tigrisfiles.io/${key}` };
-    }),
-  saveRoom: admin.input(z.object({ imageUrl: z.string().url() })).handler(async ({ input }) => {
+  upload: repositoryUpload,
+  saveRoom: admin.input(z.object({ imageUrl: z.string().refine(isPublicImagePath) })).handler(async ({ input }) => {
     const [r] = await db
       .insert(t.rooms)
-      .values({ imageUrl: safeUrl(input.imageUrl) })
+      .values({ imageUrl: input.imageUrl })
       .returning();
     return r!;
   }),
