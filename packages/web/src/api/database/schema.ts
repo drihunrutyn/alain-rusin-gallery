@@ -52,6 +52,7 @@ export const content = sqliteTable("content", {
   description: text("description").notNull().default(""),
   link: text("link").notNull().default(""),
   embedUrl: text("embed_url").notNull().default(""),
+  coverUrl: text("cover_url").notNull().default(""),
   imageUrl: text("image_url").notNull().default(""),
   location: text("location").notNull().default(""),
   eventDate: text("event_date").notNull().default(""),

@@ -1,17 +1,12 @@
 import { inArray, desc, asc, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { artworkInput, contentInput } from "../src/shared/gallery";
+import { isPublicImagePath } from "../src/shared/images";
 import { seriesInput } from "../src/shared/series";
 import type { PublicSnapshot } from "../src/shared/public-data";
 
 function publicImage(value: string) {
-  if (!value) return;
-  if (value.startsWith("/images/") && !value.split("/").includes("..")) return;
-  if (value.startsWith("https://")) {
-    const u = new URL(value);
-    if (!u.username && !u.password && !u.pathname.startsWith("/api/")) return;
-  }
-  throw new Error("Image must be a direct HTTPS storage URL or /images/ asset");
+  if (value && !isPublicImagePath(value)) throw new Error("Public images must be repository JPG paths /images/…");
 }
 export function snapshotHash(snapshot: PublicSnapshot) {
   const { builtAt: _, ...data } = snapshot;
@@ -32,7 +27,7 @@ export async function readPublicSnapshot(): Promise<PublicSnapshot> {
   const active = new Set(series.map(s => s.slug));
   return {
     artworks: works.filter(a => active.has(a.series)).map(a => { publicImage(a.imageUrl); return { ...artworkInput.parse(a), id: a.id, createdAt: a.createdAt }; }),
-    content: media.map(c => { publicImage(c.imageUrl); return { ...contentInput.parse(c), id: c.id, createdAt: c.createdAt }; }),
+    content: media.map(c => { publicImage(c.imageUrl); publicImage(c.coverUrl); return { ...contentInput.parse(c), id: c.id, createdAt: c.createdAt }; }),
     rooms: rooms.map(r => { publicImage(r.imageUrl); return r; }),
     series: series.map(s => { publicImage(s.coverUrl || ""); return { ...seriesInput.parse({ ...s, description: s.description || "", coverUrl: s.coverUrl || "" }), id: s.id, createdAt: s.createdAt }; }),
     profile: { email: profile.email || "telnov.aleosch@yandex.ru", city: profile.city || "Санкт-Петербург" },

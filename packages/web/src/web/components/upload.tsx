@@ -1,16 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { client } from "../lib/api";
 import { ErrorMessage } from "./gallery-ui";
+import { optimizeJpeg, blobBase64 } from "../lib/optimize-image";
+import { isPublicImagePath, pagesImageUrl } from "../../shared/images";
 export function ImageUpload({
   value,
   onChange,
-  type = "artworks",
+  type: _type = "artworks",
 }: {
   value: string;
   onChange: (url: string) => void;
   type?: "artworks" | "content" | "rooms";
 }) {
+  const [preview, setPreview] = useState("");
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function upload(file?: File) {
@@ -22,18 +26,9 @@ export function ImageUpload({
     setPending(true);
     setError("");
     try {
-      const result = await client.management.upload({
-        filename: file.name,
-        contentType: file.type as "image/jpeg" | "image/png" | "image/webp",
-        size: file.size,
-        type,
-      });
-      const response = await fetch(result.url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type, "x-amz-acl": "public-read" },
-      });
-      if (!response.ok) throw new Error("Не удалось загрузить изображение");
+      const jpg = await optimizeJpeg(file);
+      const result = await client.management.upload({ jpegBase64: await blobBase64(jpg) });
+      setPreview(URL.createObjectURL(jpg));
       onChange(result.publicUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
@@ -51,7 +46,7 @@ export function ImageUpload({
           if (!pending) void upload(e.dataTransfer.files[0]);
         }}
       >
-        {value ? <img src={value} alt="Выбранное изображение" /> : <UploadCloud size={32} />}
+        {(preview || isPublicImagePath(value)) ? <img src={preview || pagesImageUrl(value)} alt="Выбранное изображение" /> : <UploadCloud size={32} />}
         <span>{pending ? "Загрузка…" : "Перетащите фото или выберите файл"}</span>
         <input
           aria-label="Загрузить изображение"
@@ -67,9 +62,10 @@ export function ImageUpload({
           aria-label="Ссылка на изображение"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="https://…"
+          placeholder="/images/uploads/….jpg"
         />
       </label>
+      <small className="muted">JPG до 900 КБ, до 2000 px. На витрине и в PDF — после ближайшей сборки.</small>
       {error && <ErrorMessage message={error} />}
     </div>
   );

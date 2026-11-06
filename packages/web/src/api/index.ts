@@ -4,6 +4,7 @@ import { ping } from "./routes/ping";
 import { gallery } from "./routes/gallery";
 import { management } from "./routes/management";
 import { authRoutes } from "./auth";
+import { uploadRoutes } from "./routes/upload";
 import { base } from "./__core/app";
 import { session } from "./lib/security";
 
@@ -26,6 +27,7 @@ export type AppRouterClient = RouterClient<AppRouter>;
 
 const app = createApp(router);
 app.route("/api/auth", authRoutes);
+app.route("/api/admin", uploadRoutes);
 // Rare plain-HTTP endpoints (webhooks, streaming, the Better Auth handler)
 // register here with full paths, e.g. app.post("/api/webhooks/example", ...)
 

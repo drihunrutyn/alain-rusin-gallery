@@ -2324,3 +2324,7 @@ td {
 .embedded-media { min-width: 0; }
 .embedded-media > img { width: 100%; object-fit: cover; max-height: 350px; margin-bottom: 16px; }
 .embedded-media > iframe, .embedded-media > video { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; }
+
+.media-cover-placeholder { background: #f0ede6; color: #8e744f; padding: 28px; min-height: 150px; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid #b8996f; }
+.media-cover-placeholder span { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+.media-cover-placeholder p { margin: 14px 0 0; color: #2c2c2c; font-size: 19px; }

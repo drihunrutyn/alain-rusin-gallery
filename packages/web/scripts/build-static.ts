@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rm, access } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "vite";
@@ -28,6 +28,13 @@ if (process.argv.includes("--snapshot-only")) {
   console.log(`Validated public snapshot: ${snapshot.artworks.length} works, ${snapshot.series.length} series.`);
   process.exit(0);
 }
+const imagePaths = new Set([
+  ...snapshot.artworks.map(a => a.imageUrl),
+  ...snapshot.content.flatMap(c => [c.imageUrl, c.coverUrl]),
+  ...snapshot.series.map(s => s.coverUrl),
+  ...snapshot.rooms.map(r => r.imageUrl),
+].filter(Boolean));
+for (const image of imagePaths) await access(path.join(web, "public", image));
 // Do not destroy the previous successful out until the database snapshot validates.
 await rm(out, { recursive: true, force: true });
 await build({ root: web, configFile: path.join(web, "vite.config.ts"), mode: "static", build: { outDir: out, emptyOutDir: true } });

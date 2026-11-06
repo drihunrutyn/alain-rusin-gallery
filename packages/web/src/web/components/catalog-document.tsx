@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, Image, StyleSheet, Font, pdf } from "@react-pdf/renderer";
 import QRCode from "qrcode";
+import { pagesImageUrl } from "../../shared/images";
 import { contacts, award, money } from "../../shared/gallery";
 import { catalogOrder, visibleSeries, type SeriesData } from "../../shared/series";
 import type { Artwork } from "./gallery-ui";
@@ -47,6 +48,7 @@ const style = StyleSheet.create({
 export async function createCatalog(works: Artwork[], profile: { email: string; city: string }, rows: SeriesData[]) {
   const series = visibleSeries(rows);
   const qr = await QRCode.toDataURL(publicSiteUrl, {
+    type: "image/jpeg",
     margin: 1,
     width: 250,
     color: { dark: "#2C2C2C", light: "#F7F5F0" },
@@ -55,7 +57,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
   const doc = (
     <Document title="Каталог работ — Alain Rusin" author="Алексей Русин">
       <Page size="A4" style={style.page}>
-        <Image src={origin() + assetUrl("/images/logo.png")} style={style.logo} />
+        <Image src={pagesImageUrl("/images/logo.jpg", publicSiteUrl)} style={style.logo} />
         <Text style={style.title}>Каталог работ</Text>
         <Text style={{ textAlign: "center", fontSize: 15 }}>{new Date().getFullYear()}</Text>
         <View style={style.line} />
@@ -66,7 +68,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         <Page key={a.id} size="A4" style={style.page}>
           <Text style={style.series}>{series.find((s) => s.slug === a.series)?.title}</Text>
           <Image
-            src={a.imageUrl.startsWith("/") ? origin() + assetUrl(a.imageUrl) : a.imageUrl}
+            src={pagesImageUrl(a.imageUrl, publicSiteUrl)}
             style={style.image}
           />
           <Text style={style.artworkTitle}>{a.title}</Text>
@@ -89,7 +91,7 @@ export async function createCatalog(works: Artwork[], profile: { email: string; 
         </Page>
       ))}
       <Page size="A4" style={style.page}>
-        <Image src={origin() + assetUrl("/images/logo.png")} style={style.logo} />
+        <Image src={pagesImageUrl("/images/logo.jpg", publicSiteUrl)} style={style.logo} />
         <Text style={style.title}>Контакты</Text>
         <Text style={{ textAlign: "center", marginBottom: 25 }}>{profile.city}</Text>
         {contacts.map((c) => (
