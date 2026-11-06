@@ -17,7 +17,7 @@ export async function commitJpeg(bytes: Uint8Array, prefix = String(Date.now()))
   if (!token) throw new Error("UPLOAD_GITHUB_TOKEN не настроен на сервере");
   const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
   const name = `${prefix.replace(/[^A-Za-z0-9_-]/g, "-")}-${hash}.jpg`;
-  const path = `public/images/uploads/${name}`;
+  const path = `packages/web/public/images/uploads/${name}`;
   const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" };
   for (let attempt = 0; attempt < 3; attempt++) {
     const response = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
